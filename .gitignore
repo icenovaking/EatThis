@@ -363,3 +363,11 @@ MigrationBackup/
 FodyWeavers.xsd
 .spectra/
 openspec/.vector-search.db*
+
+# EatThis local and deployment secrets
+src/EatThis.Api/appsettings.Development.json
+src/EatThis.Api/appsettings.Local.json
+src/EatThis.Api/secrets*.json
+src/EatThis.Web/.env
+src/EatThis.Web/.env.*
+!src/EatThis.Web/.env.example

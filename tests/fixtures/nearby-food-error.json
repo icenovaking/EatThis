@@ -1,0 +1,5 @@
+{
+  "errorCode": "provider_unavailable",
+  "message": "附近地點服務暫時無法使用，請稍後再試。",
+  "retryAfterSeconds": 30
+}

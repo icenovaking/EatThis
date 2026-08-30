@@ -1,0 +1,9 @@
+{
+  "name": "Example Food Shop",
+  "address": "Taipei City",
+  "latitude": 25.0331,
+  "longitude": 121.5655,
+  "distanceMeters": 420,
+  "navigationUrl": "https://www.google.com/maps/place/example",
+  "provider": "google"
+}

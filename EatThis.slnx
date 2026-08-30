@@ -1,1 +1,5 @@
-<Solution />
+<Solution>
+  <Project Path="src/EatThis.Api/EatThis.Api.csproj" />
+  <Project Path="tests/EatThis.Api.Tests/EatThis.Api.Tests.csproj" />
+  <Project Path="src/EatThis.Web/EatThis.Web.esproj" />
+</Solution>
