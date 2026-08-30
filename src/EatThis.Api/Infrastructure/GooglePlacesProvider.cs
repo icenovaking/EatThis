@@ -21,7 +21,7 @@ public sealed class GooglePlacesProvider(
         "places.displayName,places.formattedAddress,places.location,places.googleMapsUri";
 
     private static readonly string[] IncludedTypes =
-    ["restaurant", "cafe", "fast_food", "food_court", "bakery", "meal_takeaway"];
+    ["restaurant", "cafe", "fast_food_restaurant", "food_court", "bakery", "meal_takeaway"];
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {

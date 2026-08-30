@@ -62,9 +62,9 @@ public sealed class GooglePlacesProviderTests
         using var requestJson = JsonDocument.Parse(handler.RequestBody!);
         var root = requestJson.RootElement;
         Assert.AreEqual(20, root.GetProperty("maxResultCount").GetInt32());
-        CollectionAssert.Contains(
-            root.GetProperty("includedTypes").EnumerateArray().Select(value => value.GetString()).ToArray(),
-            "restaurant");
+        CollectionAssert.AreEquivalent(
+            new[] { "restaurant", "cafe", "fast_food_restaurant", "food_court", "bakery", "meal_takeaway" },
+            root.GetProperty("includedTypes").EnumerateArray().Select(value => value.GetString()).ToArray());
         Assert.AreEqual(
             3000,
             root.GetProperty("locationRestriction").GetProperty("circle").GetProperty("radius").GetDouble());
