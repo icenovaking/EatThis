@@ -4,79 +4,77 @@
 
 - Surface: mobile-browser Operate experience.
 - Job: help a hungry, undecided person make one nearby food decision from one explicit action.
+- Audience scene: a person holding a phone in a real city, checking how far they are willing to walk before asking for a recommendation.
 - Product truth: GPS is requested on demand, Google Places is called through the API, one place is selected, and navigation continues externally.
-- Build-path assumption: no user-selected image/comp round was available in this unattended apply flow; this implementation proceeds code-first for the asset-free MVP and does not store that as a project-wide Impeccable default.
-- Selected direction assumption: the assigned Impeccable concept seed `rw-timetable-slide-rack` is used for this implementation because its fixed cells and one-dimensional movement make radius, status, and one selected result legible without an embedded map.
+- Direction seed: `1d08afa1`.
+- Current direction: pocket city food guide, with the information discipline of a transit wayfinding sheet and the warmth of a practical daily tool.
 
-## Direction: pocket timetable slide rack
+## Direction: pocket city food guide
 
-EatThis is a small printed timetable pulled open on a lit goldenrod work surface. Each state is a slide in one continuous rack. The user does not browse a directory: they pull one decision, watch the location/search mark move, and receive one opaque reversed place plate that can be handed to Google Maps.
+EatThis is a calm, precise city utility. It starts with the user's walkable distance, makes the current choice legible at a glance, and ends with one destination sheet. There is no directory to scan and no map surface to interpret: the interface moves from distance to decision to destination in one vertical read.
 
-### First viewport
+## First viewport
 
-- A warm goldenrod work surface fills the viewport; the title `今天吃什麼？` is the first readable object, without an eyebrow or decorative kicker.
-- A narrow tick rail states the active radius as `3 KM` and names the current step in text: `準備定位`, `正在搜尋`, or `已選出一間`.
-- The primary recommendation control is a vermilion reversed plate labelled `幫我決定`; it is the only dominant action in idle.
-- Supporting copy says why location is needed and that the search uses one current position, not continuous tracking.
-- Loading turns the rail into a moving light that travels along the rack once; the control becomes disabled textually and visually.
-- The selected result is an opaque ivory slide with name, address, distance, provider-neutral result wording, and one vermilion `在地圖中開啟` action.
+- The header is a small EatThis wordmark with a quiet city-guide descriptor.
+- `今天，吃什麼？` is the first strong content object and is supported by one sentence explaining on-demand location use.
+- The distance control is a labeled range input with a visible current value. It starts at `100 公尺`, uses 100-metre steps, and ends at `3 公里`.
+- The primary green action is labelled `幫我決定`; its secondary line always names the current range or the busy state.
+- The aria-live status follows the action in the same reading order. Loading, permission, provider, and no-result states include plain-language recovery.
+- A selected destination sheet follows the status and contains one name, address, distance, external map action, and the Google Maps attribution at its lower boundary.
 
-### Material and visual system
+## Material and visual system
 
-- Surface palette: goldenrod work surface, slate-tinted slide edges, carbon ink, bible ivory prose panes, vermilion action/recovery marks, bottle-green confirmation marks.
-- Use a single warm surface and one elevation language: either a 1px rule or a soft offset shadow per element, never both. No glass blur, gradient text, hard block shadow, or decorative grid overlay.
-- Typography uses a deliberate Taiwanese-Chinese sans/serif system with weight, reversal, rule, and spacing carrying hierarchy. Do not use monospace as a costume; measurements such as `3 KM` may use tabular numerals.
-- Labels are short, concrete, and in Traditional Chinese. Demonstration places are explicitly synthetic in tests; runtime place names come from the API.
-- Controls use drawn SVG line icons only when an icon adds meaning; text labels remain present and primary.
+| Role | Token | Use |
+| --- | --- | --- |
+| City paper | `#F4F7F5` | Page background and quiet whitespace |
+| Functional surface | `#FFFFFF` | Selected destination sheet and logo contrast field |
+| Deep ink | `#10211D` | Headings, primary copy, focus context |
+| Secondary ink | `#5E6B66` | Supporting copy, labels, recovery guidance |
+| Rule | `#CFD7D3` | Section boundaries and detail separators |
+| Jade action | `#087A63` | Primary action, range value, selected status |
 
-### Topology and interaction
+Typography uses the existing system Traditional Chinese sans stack. Size and weight establish hierarchy; tracking remains restrained and no webfont is added. The page uses fine rules and whitespace rather than repeated cards, gradients, decorative grids, glass effects, or heavy shadows. Control and destination radii stay between 0 and 6px. Long names and addresses wrap naturally rather than being clipped.
 
-- The page is one continuous vertical rack at narrow widths. The tick rail is the persistent orientation cue; content slides do not become a multi-column directory.
-- Idle → locating → searching is a single authored sequence. The location mark moves once, then settles; reduced-motion users receive the settled state immediately.
-- Selected state locks one slide in place. The external navigation link is a normal HTTPS link with visible destination intent; no embedded Google Maps or Leaflet surface is introduced.
-- No-result state keeps the empty rack visible and offers one explicit `擴大到 5 公里再試` action.
-- Provider error and rate-limit states name the problem, show recovery timing when available, and never show raw upstream text or credentials.
+## Topology and interaction
 
-### State contract
+The page is one vertical task surface:
+
+1. Read the purpose and the current distance.
+2. Adjust the range with a pointer, keyboard, or touch gesture without triggering work.
+3. Press the primary action to request one current position and one bounded search.
+4. Read the announced state and, on success, one destination sheet.
+5. Continue through a normal external HTTPS link to Google Maps.
+
+An empty result keeps the chosen radius visible. Below the maximum, the copy asks the user to move the control and explicitly search again. At the maximum, the copy offers an explicit retry using that same bound. No search widens itself.
+
+## State contract
 
 | State | Visible proof | Primary action | Assistive-technology behavior |
 | --- | --- | --- | --- |
-| idle | Location purpose, `3 KM`, one recommendation plate | `幫我決定` | Heading and action are immediately discoverable |
-| locating | Location request is in progress | Disabled recommendation control | `aria-live="polite"` announces locating |
-| searching | Provider request is in progress | No duplicate submit | Announces search progress and preserves recovery copy |
-| selected | One place name, address, distance, navigation action | `在地圖中開啟` | Result heading is programmatically discoverable |
-| permission-denied | Plain-language permission recovery | `再試一次` / browser settings guidance | Error is announced and does not submit API request |
-| unsupported-geolocation | Browser capability explanation | Manual browser upgrade/retry guidance | No silent fallback location |
-| no-results | Empty bounded search explanation | `擴大到 5 公里再試` | Announces no result and one explicit retry |
-| provider-error | Service unavailable explanation | `再試一次` | Raw provider error is never announced |
-| rate-limited | Wait/retry guidance | Disabled until retry window, then `再試一次` | Announces retry timing when available |
+| idle | Location purpose, current radius, one recommendation action | `幫我決定` | Heading, labeled range, and action are immediately discoverable |
+| locating | Browser location is being requested | Disabled recommendation action | Polite live region announces location work |
+| searching | Nearby search is in progress | No duplicate submit | Polite live region announces search progress |
+| selected | One place name, address, distance, navigation action, and attribution | `在地圖中開啟` | Result remains a single semantic destination sheet |
+| permission-denied | Permission recovery guidance | `再試一次` through the primary action | Error is announced and no API request is sent |
+| unsupported-geolocation | Browser capability explanation | Browser upgrade/retry guidance | No silent fallback location is used |
+| no-results | Searched radius and bounded recovery instruction | Adjust and explicitly search, or retry at the bound | Empty state is announced with the next action |
+| provider-error | Service failure explanation | `再試一次` through the primary action | Upstream details and credentials stay hidden |
+| rate-limited | Wait and retry timing | Retry after the supplied wait | Timing is announced in the live region |
 
-### Responsive and accessibility rules
+## Responsive and accessibility rules
 
-- Mobile-first layout must remain usable from 320px wide upward; the selected slide never requires horizontal scrolling for essential fields or the navigation action.
-- Desktop width may add breathing room around the rack but must not turn the experience into a map or directory.
-- Focus rings are high-contrast and visible on keyboard navigation; disabled controls have text and state cues beyond color.
-- Status messages use semantic live regions, headings, labels, and normal link semantics. Color is never the only distinction between error, loading, and success.
-- Respect `prefers-reduced-motion`; all useful content is visible without entrance animation.
+- The layout is mobile-first from 320px upward. At 390px the radius value, range, and primary action remain in the initial task area without horizontal scrolling.
+- At 320px, long Traditional Chinese and Latin names, addresses, and the navigation action stay inside the destination sheet and wrap at safe boundaries.
+- Focus rings use a high-contrast jade outline with a clear offset. Links retain an underline offset and visible destination intent.
+- The range input exposes `min=100`, `max=3000`, `step=100`, an explicit label, and a formatted `aria-valuetext`.
+- Status text, headings, normal link semantics, and the Google Maps image alt text carry meaning independently of color.
+- `prefers-reduced-motion` disables authored transitions; all useful content remains visible without motion.
+- Selection color and scrollbar treatment derive from the same paper, ink, rule, and jade palette.
 
-## Challenger decisions and raises
+## Attribution provenance
 
-The challengers were weighed on exactly two axes: audience identification and product clarity. The selected direction remains one visual world; challenger material is a discipline donation, not a costume.
+`src/EatThis.Web/src/assets/google-maps-logo.svg` is the DarkGray non-outlined SVG from Google's official Maps attribution asset package. It is kept at its supplied aspect ratio and displayed at 18 CSS pixels high with clear space inside the destination sheet. The image has the accessible label `Google Maps`; it is not recolored or altered.
 
-| Challenger | Verdict | Kept discipline |
-| --- | --- | --- |
-| CRT oscilloscope / signal bench | declined: its measurement scene loses both food identification and the one-decision clarity | detented, legible state transitions; the rail must make progress measurable |
-| Interactive type specimen | declined: live typography is memorable but does not explain the food decision | one shared scale and deliberate weight changes; avoid a pile of unrelated component styles |
-| Tensegrity breathing column | declined: force simulation loses both audience recognition and navigation clarity | balanced/loading/failed states must be visibly distinct and recoverable |
-| Alphabet storm | competitive: it could add delight, but transformation would compete with the utilitarian decision | one authored transition only, with readable text preserved throughout |
-| Pocket airline timetable slide rack | selected direction | fixed cells, lateral/vertical rack movement, and one reversed confirmation plate |
-| Busytown cutaway cross-section | competitive: labelled food places are identifiable, but a continuous scene would resemble the explicitly excluded map | labels must name real content, and narrow screens may pan a rack but never become an embedded map |
+## Release boundary
 
-## Craft-floor checks before handoff
-
-- Verify body and secondary text contrast at least 4.5:1 and large text at least 3:1.
-- Verify real Traditional Chinese copy at 320px, 390px, and desktop widths; fix overflow rather than shrinking the primary action into ambiguity.
-- Verify idle, hover/focus, disabled, locating, searching, selected, empty, permission, provider-error, and rate-limited states in the rendered UI.
-- Verify browser surfaces: selection color, focus ring, link underline offset, and scrollbar treatment derive from the palette.
-- Run the hookless web detector once on changed UI targets after implementation and fix mechanical findings.
-- Do not add an embedded map, icon tile dashboard, gradient text, hard block shadow, or color-only status cue.
+This surface ships together with the API's 100-to-3000-metre validation and server-controlled Google localization. The public request and normalized response remain provider-neutral. No embedded map, extra place list, new provider, translation service, stored preference, photo, review, or database change is part of this direction.

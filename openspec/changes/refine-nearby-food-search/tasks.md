@@ -1,0 +1,25 @@
+﻿## 1. 先建立失敗的契約測試
+
+- [x] 1.1 在 `src/EatThis.Web/src/composables/useNearbyFood.spec.ts` 與 `src/EatThis.Web/src/app.spec.ts` 先加入涵蓋 **Enforce the search radius**、**Select exactly one nearby food place**、**Present a mobile-first daily-use search surface**、**Present provider-localized place text**、**Attribute Google Maps place content clearly** 的 regression cases；案例必須驗證預設 100、調整無 GPS/API 副作用、700 submit、3000 上限、沒有 5000 action、繁中與 Latin fallback、長字串結構、raw GOOGLE 消失及 Google Maps accessible name，並以 `npm run test:run -- src/composables/useNearbyFood.spec.ts src/app.spec.ts` 確認新案例被發現且在 production code 尚未修改時只因缺少新行為而失敗。
+- [x] 1.2 在 `tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs` 與 `tests/EatThis.Api.Tests/GooglePlacesProviderTests.cs` 先加入涵蓋 **Expose a bounded nearby-food pick endpoint** 與 **Keep provider localization server-controlled** 的 regression cases；案例必須驗證 99/100/3000/3001/5000 邊界、非法 radius 不呼叫 provider、公開 request 不控制語言，以及 Google request JSON 含 `languageCode: "zh-TW"` 且 fallback candidate 不被移除，並由 Test-Runner sub-agent 執行對應 test filter 確認新案例先因缺少新行為而失敗。
+
+## 2. 收斂後端搜尋契約
+
+- [x] 2.1 完成「**在 API 邊界收斂 3 公里上限**」並實作 **Expose a bounded nearby-food pick endpoint**：將 `NearbySearchQuery` 有效範圍改為 100..3000，確保 3001 與 5000 回 HTTP 400 `invalid_request` 且 provider 呼叫次數為 0；完成後由 Test-Runner sub-agent 執行 `dotnet test tests/EatThis.Api.Tests/EatThis.Api.Tests.csproj --filter FullyQualifiedName~NearbyFoodEndpointTests`，邊界案例必須全部通過。
+- [x] 2.2 完成「**讓繁體中文偏好留在 Google adapter**」並實作 **Keep provider localization server-controlled**：`GoogleNearbySearchRequest` 固定序列化 `languageCode` 為 `zh-TW`，不改 public request 或 `IPlaceProvider` shape，且非空 fallback 名稱仍會正規化為 candidate；完成後由 Test-Runner sub-agent 執行 `dotnet test tests/EatThis.Api.Tests/EatThis.Api.Tests.csproj --filter FullyQualifiedName~GooglePlacesProviderTests`，request body 與 fallback 案例必須全部通過。
+- [x] 2.3 由 Build-Fixer sub-agent 執行 `dotnet build EatThis.slnx` 並修正本 change 引入的編譯或型別錯誤，再由 Test-Runner sub-agent 執行 `dotnet test tests/EatThis.Api.Tests/EatThis.Api.Tests.csproj`；驗收條件為 SDK 10 下 build 成功且所有 API tests 通過，若遇到 `NETSDK1045` 必須修正 SDK 選擇而不得降低 target framework。
+
+## 3. 建立每日使用的前端搜尋流程
+
+- [x] 3.1 完成「**以待搜尋狀態管理可調半徑**」並實作 **Enforce the search radius** 與 **Select exactly one nearby food place**：`useNearbyFood` 暴露初始 100 的 `selectedRadiusMeters`，只在主要動作快照並提交 100..3000 值，移除 `retryExpandedRadius`/`canRetryExpandedRadius`，no-results 保留所選 radius 且每次重試重新取得一次位置；以 focused composable tests 驗證 slider-state mutation 沒有 geolocation/pick 呼叫、700 與 3000 submit 正確且沒有自動重試。
+- [x] 3.2 在任何 UI 編輯前載入 Impeccable `craft-floor.md`，接著於 `App.vue` 完成 **Present a mobile-first daily-use search surface**：以可鍵盤操作的 range input 呈現 min 100、max 3000、step 100 與格式化目前值，主要動作、aria-live 狀態及 no-results recovery 形成單一閱讀順序且不再出現 3 KM／5 KM 裝飾 rail；以 `app.spec.ts` 驗證 range attributes、100/700/3000 文案、busy disabled state 與 no-results 無 5000 action。
+- [x] 3.3 完成 **Present provider-localized place text** 與「**以 Google Maps 官方標誌取代 raw provider**」/ **Attribute Google Maps place content clearly**：從 Google 官方 attribution asset package 取得未修改的 `src/EatThis.Web/src/assets/google-maps-logo.svg`，只在 provider 為 `google` 的結果容器下緣顯示並提供 accessible name `Google Maps`，店名與地址照 normalized response 顯示且 Latin fallback 不隱藏；以 `app.spec.ts` 驗證繁中值原樣呈現、fallback 可見、raw `GOOGLE` 不存在及 attribution 可被 accessible query 找到。
+- [x] 3.4 完成「**以口袋城市飲食指南重建 Operate 介面**」：在 `styles.css` 套用 design.md 的冷調紙白、深墨、單一玉綠、細規則線、0..6px 控制圓角與無厚陰影系統，讓 320px 長店名與地址可換行；在 `src/EatThis.Web/index.html` body 第一個子節點加入含 seed `1d08afa1` 與完整 FINISH 文字的方向 contract comment，並以 `npm run build` 加上對 `dist/index.html` 的 seed 搜尋證明 production build 保留 contract。
+- [x] 3.5 執行 `npm run test:run` 與 `npm run build`，修正本 change 引入的 Vue、TypeScript、DOM assertion 或 bundle 問題；驗收條件為所有 Vitest cases 通過、vue-tsc 無錯誤、Vite production build 成功，且 bundle 或 render 不包含 standalone provider label `GOOGLE`。
+
+## 4. 文件、視覺驗證與交付
+
+- [x] 4.1 更新 `PRODUCT.md` 與 `docs/ui/eatthis-mobile-web-direction.md`，使產品限制、狀態表、視覺世界與 release boundary 明確記錄預設 100、100..3000 slider、zh-TW fallback、官方 Google Maps attribution、口袋城市飲食指南及無 5000 retry；以內容審查確認這兩份文件不再把 3000 當固定預設、5000 當 recovery 或 pocket timetable/goldenrod/vermilion 當現行方向。
+- [ ] 4.2 完成「**使用 TDD 與有界視覺驗證收尾**」：在同一 local origin 以 320px、390px 與 desktop 一次批次檢查 idle、locating/searching、no-results、繁中結果、長 Latin fallback、focus、reduced-motion 與 Google Maps attribution，保存有效截圖至 `.impeccable/review/`；接著對 changed UI targets 執行一次 Impeccable detector、集中修正一次並最多確認一次，再由 `impeccable_finish_reviewer` 依方向 contract 給出 disposition，驗收時不得有水平 overflow、無法辨識的 range/action 或未處理的 material finding。
+- [x] 4.3 在最後一次視覺修正後由 `impeccable_documenter` 依實際 shipped surface 建立根目錄 `DESIGN.md`，並確認其 palette、type、component、responsive、state 與 attribution 規則和 screenshots/實作一致；以內容審查與 `git diff --check` 證明文件不是舊 timetable 世界或未落地的意圖稿。
+- [x] 4.4 執行 `npm run security:check`、`spectra validate refine-nearby-food-search` 與 `git diff --check`，並依 `.spectra.yaml` 的 audit 要求對變更範圍執行 Spectra audit；驗收條件為 security check、Spectra validation、whitespace check 無錯誤，audit 不留未處理的 dangerous default、type confusion 或 silent failure。

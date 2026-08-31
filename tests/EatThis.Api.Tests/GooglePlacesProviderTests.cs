@@ -61,6 +61,7 @@ public sealed class GooglePlacesProviderTests
 
         using var requestJson = JsonDocument.Parse(handler.RequestBody!);
         var root = requestJson.RootElement;
+        Assert.AreEqual("zh-TW", root.GetProperty("languageCode").GetString());
         Assert.AreEqual(20, root.GetProperty("maxResultCount").GetInt32());
         CollectionAssert.AreEquivalent(
             new[] { "restaurant", "cafe", "fast_food_restaurant", "food_court", "bakery", "meal_takeaway" },
@@ -68,6 +69,42 @@ public sealed class GooglePlacesProviderTests
         Assert.AreEqual(
             3000,
             root.GetProperty("locationRestriction").GetProperty("circle").GetProperty("radius").GetDouble());
+    }
+
+    [TestMethod]
+    public async Task Nearby_search_preserves_non_empty_latin_fallback_when_localized_name_is_unavailable()
+    {
+        var handler = new RecordingHandler(
+            """
+            {
+              "places": [
+                {
+                  "displayName": { "text": "Chin Huajiao Banqiao Xianmin Boulevard" },
+                  "formattedAddress": "No. 1, Section 2, Xianmin Boulevard, Banqiao District",
+                  "location": { "latitude": 25.0331, "longitude": 121.5655 },
+                  "googleMapsUri": "https://www.google.com/maps/place/fallback-example"
+                }
+              ]
+            }
+            """);
+        using var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = GooglePlacesProvider.DefaultBaseAddress,
+        };
+        var provider = new GooglePlacesProvider(
+            httpClient,
+            Options.Create(new GooglePlacesOptions { ApiKey = "fake-test-key" }),
+            NullLogger<GooglePlacesProvider>.Instance);
+
+        var candidates = await provider.SearchAsync(
+            new NearbySearchQuery(25.0330, 121.5654, 3000),
+            CancellationToken.None);
+
+        Assert.AreEqual(1, candidates.Count);
+        Assert.AreEqual("Chin Huajiao Banqiao Xianmin Boulevard", candidates[0].Name);
+        Assert.AreEqual(
+            "No. 1, Section 2, Xianmin Boulevard, Banqiao District",
+            candidates[0].Address);
     }
 
     [TestMethod]

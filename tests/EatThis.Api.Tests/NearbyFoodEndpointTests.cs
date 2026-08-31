@@ -60,10 +60,51 @@ public sealed class NearbyFoodEndpointTests
     }
 
     [TestMethod]
+    [DataRow(100)]
+    [DataRow(3000)]
+    public async Task Radius_at_public_bounds_is_accepted_and_calls_provider_once(int radiusMeters)
+    {
+        await using var factory = new EatThisApiFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/nearby-food/pick",
+            new { latitude = 25.0330, longitude = 121.5654, radiusMeters });
+
+        Assert.AreNotEqual(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.AreEqual(1, factory.ProviderCalls);
+        Assert.AreEqual(radiusMeters, factory.LastQuery?.RadiusMeters);
+    }
+
+    [TestMethod]
+    public async Task Caller_language_option_is_ignored_and_provider_query_remains_neutral()
+    {
+        await using var factory = new EatThisApiFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/nearby-food/pick",
+            new
+            {
+                latitude = 25.0330,
+                longitude = 121.5654,
+                radiusMeters = 700,
+                languageCode = "en-US",
+            });
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual(1, factory.ProviderCalls);
+        Assert.AreEqual(700, factory.LastQuery?.RadiusMeters);
+        Assert.IsNull(typeof(NearbyFoodRequest).GetProperty("LanguageCode"));
+        Assert.IsNull(typeof(EatThis.Api.Domain.NearbySearchQuery).GetProperty("LanguageCode"));
+    }
+
+    [TestMethod]
     [DataRow(91.0, 121.5654, 3000)]
     [DataRow(25.0330, 181.0, 3000)]
     [DataRow(25.0330, 121.5654, 99)]
-    [DataRow(25.0330, 121.5654, 5001)]
+    [DataRow(25.0330, 121.5654, 3001)]
+    [DataRow(25.0330, 121.5654, 5000)]
     public async Task Invalid_location_or_radius_returns_bad_request(
         double latitude,
         double longitude,

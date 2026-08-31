@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-30T15:30:00.000Z",
+  "title": "Design System: EatThis",
+  "extensions": {
+    "colorMeta": {
+      "jade": {
+        "role": "primary",
+        "displayName": "Jade Action",
+        "canonical": "#087a63",
+        "tonalRamp": [
+          "oklch(15% 0.11 164)",
+          "oklch(27% 0.11 164)",
+          "oklch(39% 0.11 164)",
+          "oklch(51% 0.11 164)",
+          "oklch(63% 0.11 164)",
+          "oklch(75% 0.11 164)",
+          "oklch(87% 0.11 164)",
+          "oklch(95% 0.11 164)"
+        ]
+      },
+      "jade-deep": {
+        "role": "primary",
+        "displayName": "Deep Jade",
+        "canonical": "#075d4d",
+        "tonalRamp": [
+          "oklch(15% 0.08 164)",
+          "oklch(27% 0.08 164)",
+          "oklch(39% 0.08 164)",
+          "oklch(51% 0.08 164)",
+          "oklch(63% 0.08 164)",
+          "oklch(75% 0.08 164)",
+          "oklch(87% 0.08 164)",
+          "oklch(95% 0.08 164)"
+        ]
+      },
+      "cool-paper": {
+        "role": "neutral",
+        "displayName": "Cool Paper",
+        "canonical": "#f4f7f5",
+        "tonalRamp": [
+          "oklch(15% 0.008 160)",
+          "oklch(27% 0.008 160)",
+          "oklch(39% 0.008 160)",
+          "oklch(51% 0.008 160)",
+          "oklch(63% 0.008 160)",
+          "oklch(75% 0.008 160)",
+          "oklch(87% 0.008 160)",
+          "oklch(95% 0.008 160)"
+        ]
+      },
+      "white-surface": {
+        "role": "neutral",
+        "displayName": "White Surface",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(27% 0 0)",
+          "oklch(39% 0 0)",
+          "oklch(51% 0 0)",
+          "oklch(63% 0 0)",
+          "oklch(75% 0 0)",
+          "oklch(87% 0 0)",
+          "oklch(100% 0 0)"
+        ]
+      },
+      "deep-ink": {
+        "role": "neutral",
+        "displayName": "Deep Ink",
+        "canonical": "#10211d",
+        "tonalRamp": [
+          "oklch(15% 0.025 164)",
+          "oklch(27% 0.025 164)",
+          "oklch(39% 0.025 164)",
+          "oklch(51% 0.025 164)",
+          "oklch(63% 0.025 164)",
+          "oklch(75% 0.025 164)",
+          "oklch(87% 0.025 164)",
+          "oklch(95% 0.025 164)"
+        ]
+      },
+      "muted-ink": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "#5e6b66",
+        "tonalRamp": [
+          "oklch(15% 0.022 164)",
+          "oklch(27% 0.022 164)",
+          "oklch(39% 0.022 164)",
+          "oklch(51% 0.022 164)",
+          "oklch(63% 0.022 164)",
+          "oklch(75% 0.022 164)",
+          "oklch(87% 0.022 164)",
+          "oklch(95% 0.022 164)"
+        ]
+      },
+      "rule-grey": {
+        "role": "neutral",
+        "displayName": "Rule Grey",
+        "canonical": "#cfd7d3",
+        "tonalRamp": [
+          "oklch(15% 0.015 164)",
+          "oklch(27% 0.015 164)",
+          "oklch(39% 0.015 164)",
+          "oklch(51% 0.015 164)",
+          "oklch(63% 0.015 164)",
+          "oklch(75% 0.015 164)",
+          "oklch(87% 0.015 164)",
+          "oklch(95% 0.015 164)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Decision Display",
+        "purpose": "The opening decision headline."
+      },
+      "title": {
+        "displayName": "Destination Title",
+        "purpose": "Result and recovery headings."
+      },
+      "body": {
+        "displayName": "Practical Body",
+        "purpose": "Explanatory copy and readable place information."
+      },
+      "label": {
+        "displayName": "Quiet Label",
+        "purpose": "Range endpoints, metadata labels, and quiet interface notes."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "The compact EatThis identity lockup."
+      },
+      "control": {
+        "displayName": "Control Label",
+        "purpose": "The radius label and other compact control headings."
+      },
+      "range-scale": {
+        "displayName": "Range Scale",
+        "purpose": "The endpoint labels beneath the radius control."
+      },
+      "note": {
+        "displayName": "Supporting Note",
+        "purpose": "Secondary action and recovery guidance."
+      },
+      "detail": {
+        "displayName": "State Detail",
+        "purpose": "Secondary status and metadata detail."
+      },
+      "radius-value": {
+        "displayName": "Radius Value",
+        "purpose": "The current distance choice beside the range label."
+      },
+      "place-title": {
+        "displayName": "Place Title",
+        "purpose": "The larger selected-destination heading."
+      },
+      "compact-display": {
+        "displayName": "Compact Display",
+        "purpose": "The smaller opening headline used at compact widths."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "interactive-state",
+        "value": "160ms ease-out",
+        "purpose": "Short background and border transitions for interactive actions."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "Collapse authored transitions when prefers-reduced-motion is enabled."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "480px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single recommendation action that starts one location request and one nearby search.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\"><span>幫我決定</span><span class=\"ds-btn-detail\">目前範圍 · 100 公尺</span></button>",
+      "css": ".ds-btn-primary { display: inline-flex; flex-direction: column; align-items: flex-start; justify-content: center; min-width: min(100%, 280px); min-height: 58px; padding: 12px 18px; border: 1px solid var(--green); border-radius: var(--radius-control); color: var(--surface); background: var(--green); text-align: left; font: inherit; font-weight: 800; cursor: pointer; transition: background-color 160ms ease-out, border-color 160ms ease-out; } .ds-btn-primary:hover { border-color: var(--green-dark); background: var(--green-dark); } .ds-btn-primary:active { border-color: var(--green-dark); background: var(--green-dark); } .ds-btn-primary:focus-visible { outline: 3px solid var(--green); outline-offset: 4px; } .ds-btn-primary:disabled { border-color: var(--muted); background: var(--muted); cursor: wait; } .ds-btn-detail { margin-top: 5px; font-size: 0.76rem; font-weight: 500; letter-spacing: 0.01em; }"
+    },
+    {
+      "name": "Navigation Action",
+      "kind": "nav",
+      "refersTo": "button-navigation",
+      "description": "A full-width external handoff from the destination sheet to the user's map.",
+      "html": "<a class=\"ds-nav-action\" href=\"https://maps.google.com/\" target=\"_blank\" rel=\"noreferrer\"><span>在地圖中開啟</span><span class=\"ds-btn-detail\">交給 Google Maps web / app</span></a>",
+      "css": ".ds-nav-action { display: inline-flex; width: 100%; min-height: 58px; flex-direction: column; align-items: flex-start; justify-content: center; padding: 12px 18px; border: 1px solid var(--green); border-radius: var(--radius-control); color: var(--surface); background: var(--green); text-align: left; font: inherit; font-weight: 800; text-decoration: none; transition: background-color 160ms ease-out, border-color 160ms ease-out; } .ds-nav-action:hover { border-color: var(--green-dark); background: var(--green-dark); } .ds-nav-action:active { border-color: var(--green-dark); background: var(--green-dark); } .ds-nav-action:focus-visible { outline: 3px solid var(--green); outline-offset: 4px; } .ds-nav-action .ds-btn-detail { font-weight: 500; }"
+    },
+    {
+      "name": "Radius Range",
+      "kind": "input",
+      "refersTo": "input-radius",
+      "description": "A keyboard- and touch-friendly range control for the user's walkable radius.",
+      "html": "<label class=\"ds-range-label\" for=\"ds-radius\">搜尋距離</label><output class=\"ds-range-value\" for=\"ds-radius\">100 公尺</output><input class=\"ds-range\" id=\"ds-radius\" type=\"range\" min=\"100\" max=\"3000\" step=\"100\" value=\"100\" aria-label=\"搜尋距離\">",
+      "css": ".ds-range-label { display: block; margin-bottom: 5px; color: var(--ink); font: inherit; font-size: 0.88rem; font-weight: 750; } .ds-range-value { display: block; margin: 8px 0 12px; color: var(--green); font: inherit; font-size: 1.5rem; font-weight: 850; } .ds-range { display: block; width: 100%; height: 28px; margin: 0; padding: 0; border: 0; border-radius: var(--radius-control); background: transparent; accent-color: var(--green); cursor: pointer; appearance: none; } .ds-range::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--line); } .ds-range::-moz-range-track { height: 4px; border-radius: 2px; background: var(--line); } .ds-range::-webkit-slider-thumb { width: 20px; height: 20px; margin-top: -8px; border: 3px solid var(--green); border-radius: 50%; background: var(--surface); appearance: none; } .ds-range::-moz-range-thumb { width: 14px; height: 14px; border: 3px solid var(--green); border-radius: 50%; background: var(--surface); } .ds-range:hover::-webkit-slider-thumb, .ds-range:active::-webkit-slider-thumb { background: var(--green); } .ds-range:hover::-moz-range-thumb, .ds-range:active::-moz-range-thumb { background: var(--green); } .ds-range:focus-visible { outline: 3px solid var(--green); outline-offset: 4px; }"
+    },
+    {
+      "name": "Destination Sheet",
+      "kind": "card",
+      "refersTo": "card-destination",
+      "description": "The quiet result surface that holds one selected place and its next action.",
+      "html": "<article class=\"ds-destination\"><h2>選出的目的地</h2><dl class=\"ds-details\"><div><dt>地址</dt><dd>城市中的一個地址</dd></div><div><dt>距離</dt><dd>800 公尺</dd></div></dl><a class=\"ds-nav-action\" href=\"https://maps.google.com/\">在地圖中開啟</a></article>",
+      "css": ".ds-destination { margin-top: 28px; padding: 22px 20px 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); } .ds-destination h2 { margin: 0 0 18px; font: inherit; font-size: clamp(1.55rem, 6vw, 2.35rem); font-weight: 800; letter-spacing: -0.025em; line-height: 1.18; overflow-wrap: anywhere; } .ds-details { margin: 0 0 20px; } .ds-details div { display: grid; grid-template-columns: 4rem minmax(0, 1fr); gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); } .ds-details dt { color: var(--muted); font-size: 0.78rem; font-weight: 750; } .ds-details dd { min-width: 0; margin: 0; line-height: 1.6; overflow-wrap: anywhere; word-break: break-word; }"
+    },
+    {
+      "name": "Live State Panel",
+      "kind": "custom",
+      "description": "A rule-bounded status row that announces location, search, result, and recovery states.",
+      "html": "<div class=\"ds-state\" role=\"status\" aria-live=\"polite\"><span class=\"ds-state-mark\" aria-hidden=\"true\"></span><p>已為你選出一間，接著可以開啟地圖。</p></div>",
+      "css": ".ds-state { display: grid; grid-template-columns: 12px minmax(0, 1fr); column-gap: 12px; align-items: start; padding: 16px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--ink); } .ds-state-mark { width: 9px; height: 9px; margin-top: 7px; border: 2px solid var(--green); border-radius: 50%; background: var(--green); } .ds-state p { margin: 0; font: inherit; font-weight: 700; line-height: 1.6; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Pocket City Guide",
+    "overview": "EatThis is a calm, precise city utility that should feel useful in a real hand, not staged for a campaign. The visual language is a cool sheet of city paper: deep ink carries the reading load, thin rules organize the route, and one jade action color marks the next decision.\n\nThe experience moves in one vertical read from distance to decision to destination. Information stays close to its action, live place data is allowed to wrap, and the destination sheet is quiet enough that the external map action remains obvious. The system uses a Traditional Chinese-first system sans stack, restrained geometry, and flat tonal surfaces to keep a daily food choice quick and credible.",
+    "keyCharacteristics": [
+      "Calm city utility with transit-grade information discipline.",
+      "One deliberate jade accent for action and selected state.",
+      "Cool paper, white surface, deep ink, and fine rules instead of decorative chrome.",
+      "One readable path from radius choice to a single destination.",
+      "Traditional Chinese-first typography with safe wrapping for live place data."
+    ],
+    "rules": [
+      {
+        "name": "The One Accent Rule",
+        "body": "Jade is the only chromatic action color; reserve it for an action, a selected state, or the current value that needs attention.",
+        "section": "colors"
+      },
+      {
+        "name": "The Clear Hierarchy Rule",
+        "body": "Use weight, scale, and whitespace to show what happens next; do not make every line compete with the opening decision.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Surface Rule",
+        "body": "Keep the recommendation journey in one vertical read: choose a walkable radius, make one request, announce the state, and show one destination.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Paper Rule",
+        "body": "Surfaces stay flat at rest; use tonal contrast, rules, and state color to establish hierarchy before adding any visual effect.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use the cool-paper, white-surface, deep-ink, muted-ink, rule-grey, and jade roles for their stated functions.",
+      "Do keep one primary action visually dominant and pair it with a short secondary detail line.",
+      "Do preserve fine rules and whitespace as the main structural devices.",
+      "Do let user-provided or provider-returned names and addresses wrap naturally.",
+      "Do keep interactive controls keyboard reachable with a visible high-contrast focus treatment.",
+      "Do preserve official attribution assets at their supplied aspect ratio and with an accessible name."
+    ],
+    "donts": [
+      "Don't introduce gradients, heavy shadows, warm multi-accent palettes, or ornamental background effects.",
+      "Don't turn every section into a separate card, badge, pill, or decorative chrome element.",
+      "Don't truncate live place names, addresses, or navigation intent to protect a fixed visual shape.",
+      "Don't rely on color alone to communicate status, errors, or recovery.",
+      "Don't expose raw provider identifiers as user-facing labels."
+    ]
+  }
+}

@@ -15,6 +15,18 @@ const selectedPlace: PlaceResult = {
   provider: 'google',
 }
 
+const traditionalChinesePlace: PlaceResult = {
+  ...selectedPlace,
+  name: '老地方牛肉麵',
+  address: '新北市板橋區文化路一段 1 號',
+}
+
+const longFallbackPlace: PlaceResult = {
+  ...selectedPlace,
+  name: 'Chin Huajiao Banqiao Xianmin Boulevard Traditional Noodle Workshop',
+  address: 'No. 1, Section 2, Xianmin Boulevard, Xinmin Village, Banqiao District, New Taipei City, Taiwan 220',
+}
+
 function successfulGeolocation() {
   return {
     getCurrentPosition: vi.fn((success: PositionCallback) => {
@@ -39,6 +51,29 @@ describe('EatThis shell', () => {
     const wrapper = mount(App)
 
     expect(wrapper.get('button').text()).toContain('幫我決定')
+  })
+
+  it('renders a 100-to-3000-metre range control and formats pending values without side effects', async () => {
+    const geolocation = successfulGeolocation()
+    const pick = vi.fn().mockResolvedValue(selectedPlace)
+    const wrapper = mount(App, { props: { geolocation, pick } })
+    const radius = wrapper.get('input[type="range"]')
+
+    expect(radius.attributes('min')).toBe('100')
+    expect(radius.attributes('max')).toBe('3000')
+    expect(radius.attributes('step')).toBe('100')
+    expect((radius.element as HTMLInputElement).value).toBe('100')
+    expect(wrapper.get('[data-radius-value]').text()).toBe('100 公尺')
+
+    await radius.setValue('700')
+    expect(wrapper.get('[data-radius-value]').text()).toBe('700 公尺')
+    expect(geolocation.getCurrentPosition).not.toHaveBeenCalled()
+    expect(pick).not.toHaveBeenCalled()
+
+    await radius.setValue('3000')
+    expect(wrapper.get('[data-radius-value]').text()).toBe('3 公里')
+    expect(geolocation.getCurrentPosition).not.toHaveBeenCalled()
+    expect(pick).not.toHaveBeenCalled()
   })
 
   it('displays one selected place and an external navigation link', async () => {
@@ -79,24 +114,78 @@ describe('EatThis shell', () => {
     expect(pick).not.toHaveBeenCalled()
   })
 
-  it('offers a five-kilometer retry only after a no-results response', async () => {
-    const pick = vi.fn()
-      .mockRejectedValueOnce(new ApiRequestError(404, 'no_results', '找不到附近地點。'))
-      .mockResolvedValueOnce(selectedPlace)
+  it('keeps the searched radius after no results and never offers a five-kilometre action', async () => {
+    const geolocation = successfulGeolocation()
+    const pick = vi.fn().mockRejectedValue(
+      new ApiRequestError(404, 'no_results', '找不到附近地點。'),
+    )
     const wrapper = mount(App, {
-      props: { geolocation: successfulGeolocation(), pick },
+      props: { geolocation, pick },
+    })
+
+    await wrapper.get('input[type="range"]').setValue('700')
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('section[data-state="no-results"]').text()).toContain('700 公尺')
+    expect((wrapper.get('input[type="range"]').element as HTMLInputElement).value).toBe('700')
+    expect(wrapper.find('[data-action="retry-expanded"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('5 公里')
+    expect(pick).toHaveBeenCalledTimes(1)
+    expect(pick).toHaveBeenCalledWith(expect.objectContaining({ radiusMeters: 700 }))
+    expect(geolocation.getCurrentPosition).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders Traditional Chinese place text unchanged', async () => {
+    const wrapper = mount(App, {
+      props: {
+        geolocation: successfulGeolocation(),
+        pick: vi.fn().mockResolvedValue(traditionalChinesePlace),
+      },
     })
 
     await wrapper.get('[data-action="recommend"]').trigger('click')
     await flushPromises()
-    expect(wrapper.get('[data-state="no-results"]').text()).toContain('沒有找到')
 
-    await wrapper.get('[data-action="retry-expanded"]').trigger('click')
+    expect(wrapper.get('article[data-state="selected"] h2').text()).toBe('老地方牛肉麵')
+    expect(wrapper.get('article[data-state="selected"]').text())
+      .toContain('新北市板橋區文化路一段 1 號')
+  })
+
+  it('keeps a long Latin fallback visible inside the result structure', async () => {
+    const wrapper = mount(App, {
+      props: {
+        geolocation: successfulGeolocation(),
+        pick: vi.fn().mockResolvedValue(longFallbackPlace),
+      },
+    })
+
+    await wrapper.get('[data-action="recommend"]').trigger('click')
     await flushPromises()
 
-    expect(pick).toHaveBeenNthCalledWith(1, expect.objectContaining({ radiusMeters: 3000 }))
-    expect(pick).toHaveBeenNthCalledWith(2, expect.objectContaining({ radiusMeters: 5000 }))
-    expect(wrapper.get('[data-state="selected"] h2').text()).toBe('Example Food Shop')
+    const result = wrapper.get('article[data-state="selected"]')
+    expect(result.get('h2').text()).toBe(longFallbackPlace.name)
+    expect(result.get('.place-details div:first-child dd').text()).toBe(longFallbackPlace.address)
+    expect(result.get('[data-action="navigation"]').attributes('href'))
+      .toBe(longFallbackPlace.navigationUrl)
+  })
+
+  it('shows accessible Google Maps attribution without the raw provider label', async () => {
+    const wrapper = mount(App, {
+      props: {
+        geolocation: successfulGeolocation(),
+        pick: vi.fn().mockResolvedValue(selectedPlace),
+      },
+    })
+
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    await flushPromises()
+
+    const attribution = wrapper.get('[data-attribution="google-maps"]')
+    expect(attribution.element.tagName).toBe('IMG')
+    expect(attribution.attributes('alt') ?? attribution.attributes('aria-label'))
+      .toBe('Google Maps')
+    expect(wrapper.find('.place-provider').exists()).toBe(false)
   })
 
   it('renders provider errors without exposing upstream details', async () => {

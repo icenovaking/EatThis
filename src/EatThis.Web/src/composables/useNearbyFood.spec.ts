@@ -43,10 +43,12 @@ function createGeolocation(
 }
 
 describe('useNearbyFood', () => {
-  it('requests one position and searches with the default three-kilometer radius', async () => {
+  it('starts at 100 metres and submits the default radius after one location request', async () => {
     const geolocation = createGeolocation()
     const pick = vi.fn().mockResolvedValue(selectedPlace)
     const flow = useNearbyFood({ geolocation, pick })
+
+    expect(flow.selectedRadiusMeters.value).toBe(100)
 
     await flow.recommend()
 
@@ -54,11 +56,63 @@ describe('useNearbyFood', () => {
     expect(pick).toHaveBeenCalledWith({
       latitude: 25.0330,
       longitude: 121.5654,
-      radiusMeters: 3000,
+      radiusMeters: 100,
     })
     expect(flow.state.value).toBe('selected')
     expect(flow.place.value).toEqual(selectedPlace)
   })
+
+  it('updates the pending radius without locating or searching until recommend is activated', async () => {
+    const geolocation = createGeolocation()
+    const pick = vi.fn().mockResolvedValue(selectedPlace)
+    const flow = useNearbyFood({ geolocation, pick })
+
+    flow.selectedRadiusMeters.value = 700
+
+    expect(flow.selectedRadiusMeters.value).toBe(700)
+    expect(geolocation?.getCurrentPosition).not.toHaveBeenCalled()
+    expect(pick).not.toHaveBeenCalled()
+
+    await flow.recommend()
+
+    expect(geolocation?.getCurrentPosition).toHaveBeenCalledTimes(1)
+    expect(pick).toHaveBeenCalledWith({
+      latitude: 25.0330,
+      longitude: 121.5654,
+      radiusMeters: 700,
+    })
+  })
+
+  it('submits the three-kilometre maximum without exposing an expanded retry', async () => {
+    const geolocation = createGeolocation()
+    const pick = vi.fn().mockResolvedValue(selectedPlace)
+    const flow = useNearbyFood({ geolocation, pick })
+
+    flow.selectedRadiusMeters.value = 3000
+    await flow.recommend()
+
+    expect(pick).toHaveBeenCalledWith(expect.objectContaining({ radiusMeters: 3000 }))
+    expect('retryExpandedRadius' in flow).toBe(false)
+    expect('canRetryExpandedRadius' in flow).toBe(false)
+  })
+
+  it.each([99, 3001])(
+    'rejects pending radius %i outside 100 metres through 3 kilometres before locating',
+    async (radiusMeters) => {
+      const geolocation = createGeolocation()
+      const pick = vi.fn()
+      const flow = useNearbyFood({ geolocation, pick })
+
+      flow.selectedRadiusMeters.value = radiusMeters
+      await flow.recommend()
+
+      expect(geolocation?.getCurrentPosition).not.toHaveBeenCalled()
+      expect(pick).not.toHaveBeenCalled()
+      expect(flow.state.value).toBe('provider-error')
+      expect(flow.error.value?.message).toContain('100 公尺')
+      expect(flow.error.value?.message).toContain('3 公里')
+    },
+  )
 
   it('does not call the API when location permission is denied', async () => {
     const geolocation = createGeolocation('permission-denied')
@@ -99,27 +153,21 @@ describe('useNearbyFood', () => {
     expect(pick).toHaveBeenCalledTimes(1)
   })
 
-  it('offers an explicit five-kilometer retry after no results without watching GPS', async () => {
+  it('keeps the searched radius after no results without retrying automatically', async () => {
     const geolocation = createGeolocation()
-    const noResults = new Error('no_results')
-    const pick = vi.fn()
-      .mockRejectedValueOnce(noResults)
-      .mockResolvedValueOnce(selectedPlace)
+    const pick = vi.fn().mockRejectedValue(new Error('no_results'))
     const flow = useNearbyFood({ geolocation, pick })
 
+    flow.selectedRadiusMeters.value = 700
     await flow.recommend()
-    await flow.retryExpandedRadius()
 
-    expect(flow.state.value).toBe('selected')
-    expect(pick).toHaveBeenNthCalledWith(1, {
+    expect(flow.state.value).toBe('no-results')
+    expect(flow.selectedRadiusMeters.value).toBe(700)
+    expect(pick).toHaveBeenCalledTimes(1)
+    expect(pick).toHaveBeenCalledWith({
       latitude: 25.0330,
       longitude: 121.5654,
-      radiusMeters: 3000,
-    })
-    expect(pick).toHaveBeenNthCalledWith(2, {
-      latitude: 25.0330,
-      longitude: 121.5654,
-      radiusMeters: 5000,
+      radiusMeters: 700,
     })
     expect(geolocation?.getCurrentPosition).toHaveBeenCalledTimes(1)
   })

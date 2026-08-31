@@ -19,6 +19,7 @@ public sealed class GooglePlacesProvider(
 
     private const string FieldMask =
         "places.displayName,places.formattedAddress,places.location,places.googleMapsUri";
+    private const string LanguageCode = "zh-TW";
 
     private static readonly string[] IncludedTypes =
     ["restaurant", "cafe", "fast_food_restaurant", "food_court", "bakery", "meal_takeaway"];
@@ -42,6 +43,7 @@ public sealed class GooglePlacesProvider(
         var request = new GoogleNearbySearchRequest(
             IncludedTypes,
             20,
+            LanguageCode,
             new GoogleLocationRestriction(
                 new GoogleCircle(
                     new GoogleLatLng(query.Latitude, query.Longitude),
@@ -176,6 +178,7 @@ internal static class DistanceCalculator
 internal sealed record GoogleNearbySearchRequest(
     [property: JsonPropertyName("includedTypes")] IReadOnlyList<string> IncludedTypes,
     [property: JsonPropertyName("maxResultCount")] int MaxResultCount,
+    [property: JsonPropertyName("languageCode")] string LanguageCode,
     [property: JsonPropertyName("locationRestriction")] GoogleLocationRestriction LocationRestriction);
 
 internal sealed record GoogleLocationRestriction(

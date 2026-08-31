@@ -17,16 +17,30 @@ export interface FlowError {
 }
 
 const defaultErrorMessage = '附近地點服務暫時無法使用，請稍後再試。'
+export const MINIMUM_RADIUS_METERS = 100
+export const MAXIMUM_RADIUS_METERS = 3000
+export const RADIUS_STEP_METERS = 100
+
+function isValidRadius(radiusMeters: number): boolean {
+  return Number.isInteger(radiusMeters) &&
+    radiusMeters >= MINIMUM_RADIUS_METERS &&
+    radiusMeters <= MAXIMUM_RADIUS_METERS
+}
+
+function invalidRadiusError(): FlowError {
+  return {
+    code: 'invalid_request',
+    message: '搜尋範圍必須介於 100 公尺與 3 公里之間。',
+  }
+}
 
 export function useNearbyFood(options: NearbyFoodOptions = {}) {
   const state = ref<NearbyFoodState>('idle')
   const place = ref<PlaceResult | null>(null)
   const error = ref<FlowError | null>(null)
+  const selectedRadiusMeters = ref(MINIMUM_RADIUS_METERS)
   const currentLocation = ref<{ latitude: number; longitude: number } | null>(null)
   const isBusy = computed(() => state.value === 'locating' || state.value === 'searching')
-  const canRetryExpandedRadius = computed(
-    () => state.value === 'no-results' && currentLocation.value !== null,
-  )
   const pick = options.pick ?? defaultPickNearbyFood
 
   async function recommend(): Promise<void> {
@@ -36,6 +50,14 @@ export function useNearbyFood(options: NearbyFoodOptions = {}) {
 
     place.value = null
     error.value = null
+
+    const radiusMeters = selectedRadiusMeters.value
+    if (!isValidRadius(radiusMeters)) {
+      error.value = invalidRadiusError()
+      state.value = 'provider-error'
+      return
+    }
+
     state.value = 'locating'
 
     try {
@@ -45,24 +67,13 @@ export function useNearbyFood(options: NearbyFoodOptions = {}) {
       return
     }
 
-    await search(3000)
-  }
-
-  async function retryExpandedRadius(): Promise<void> {
-    if (!canRetryExpandedRadius.value || isBusy.value) {
-      return
-    }
-
-    await search(5000)
+    await search(radiusMeters)
   }
 
   async function search(radiusMeters: number): Promise<void> {
     const location = currentLocation.value
-    if (!location || radiusMeters > 5000 || radiusMeters < 100) {
-      error.value = {
-        code: 'invalid_request',
-        message: '搜尋範圍必須介於 100 公尺與 5 公里之間。',
-      }
+    if (!location || !isValidRadius(radiusMeters)) {
+      error.value = invalidRadiusError()
       state.value = 'provider-error'
       return
     }
@@ -130,9 +141,8 @@ export function useNearbyFood(options: NearbyFoodOptions = {}) {
     state,
     place,
     error,
+    selectedRadiusMeters,
     isBusy,
-    canRetryExpandedRadius,
     recommend,
-    retryExpandedRadius,
   }
 }

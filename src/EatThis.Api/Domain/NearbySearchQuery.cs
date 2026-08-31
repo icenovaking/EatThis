@@ -9,7 +9,7 @@ public readonly record struct NearbySearchQuery(
 {
     public const int DefaultRadiusMeters = 3000;
     public const int MinimumRadiusMeters = 100;
-    public const int MaximumRadiusMeters = 5000;
+    public const int MaximumRadiusMeters = 3000;
 
     public static bool TryCreate(NearbyFoodRequest? request, out NearbySearchQuery query)
     {
