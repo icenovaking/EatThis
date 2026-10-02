@@ -5,5 +5,6 @@
   "longitude": 121.5655,
   "distanceMeters": 420,
   "navigationUrl": "https://www.google.com/maps/place/example",
-  "provider": "google"
+  "provider": "google",
+  "rating": 4.3
 }

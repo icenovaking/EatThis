@@ -29,6 +29,7 @@ public sealed class NearbyFoodService(
 
         var usableCandidates = candidates
             .Where(candidate => PlaceCandidateRules.IsUsable(candidate, query))
+            .Where(candidate => query.MinRating is null || candidate.Rating >= query.MinRating)
             .DistinctBy(candidate => candidate.NavigationUrl, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 

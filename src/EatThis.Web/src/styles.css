@@ -6,6 +6,9 @@
   --line: #cfd7d3;
   --green: #087a63;
   --green-dark: #075d4d;
+  --rating-yellow: #e9b528;
+  --rating-empty: #c0c9c4;
+  --rating-star-size: clamp(48px, 8vw, 56px);
   --radius-control: 4px;
   font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
   color: var(--ink);
@@ -269,6 +272,136 @@ input[type="range"]:active::-moz-range-thumb {
 
 .action-block {
   padding: 24px 0 28px;
+}
+
+.rating-control {
+  min-width: 0;
+  margin: 24px 0 0;
+  padding: 0 0 18px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.rating-control legend {
+  padding: 0;
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.rating-heading,
+.rating-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.rating-heading {
+  justify-content: space-between;
+  margin: 6px 0 12px;
+}
+
+#rating-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.rating-value {
+  font-size: 0.88rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.rating-stars {
+  display: flex;
+  gap: clamp(0px, 1vw, 4px);
+}
+
+.rating-star {
+  position: relative;
+  width: var(--rating-star-size);
+  height: var(--rating-star-size);
+}
+
+.rating-star-icon {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: var(--rating-empty);
+  pointer-events: none;
+}
+
+.rating-star-filled {
+  fill: var(--rating-yellow);
+}
+
+.rating-half {
+  position: absolute;
+  inset: 0 50% 0 0;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.rating-half--right {
+  inset: 0 0 0 50%;
+}
+
+.rating-half input,
+.rating-unrestricted input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.rating-half:has(input:focus-visible),
+.rating-unrestricted:has(input:focus-visible) {
+  outline: 3px solid var(--green);
+  outline-offset: 2px;
+}
+
+.rating-half:hover {
+  outline: 1px solid var(--muted);
+  outline-offset: -1px;
+}
+
+.rating-unrestricted {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.rating-unrestricted:has(input:checked) {
+  border-color: var(--green);
+  color: var(--green-dark);
+  background: var(--surface);
+  font-weight: 750;
+}
+
+.place-rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-rating-star {
+  width: 20px;
+  height: 20px;
+  fill: var(--rating-yellow);
+  flex: 0 0 auto;
 }
 
 .primary-action,

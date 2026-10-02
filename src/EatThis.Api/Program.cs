@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using System.Text.Json;
 using EatThis.Api.Application;
 using EatThis.Api.Contracts;
 using EatThis.Api.Infrastructure;
@@ -62,8 +63,21 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.MapPost(
         "/api/nearby-food/pick",
-        async (NearbyFoodRequest? request, NearbyFoodService service, CancellationToken cancellationToken) =>
+        async (HttpRequest httpRequest, NearbyFoodService service, CancellationToken cancellationToken) =>
         {
+            NearbyFoodRequest? request;
+            try
+            {
+                request = await httpRequest.ReadFromJsonAsync<NearbyFoodRequest>(cancellationToken);
+            }
+            catch (JsonException)
+            {
+                return Results.BadRequest(ApiErrorResponse.InvalidRequest);
+            }
+            catch (InvalidOperationException) when (!httpRequest.HasJsonContentType())
+            {
+                return Results.BadRequest(ApiErrorResponse.InvalidRequest);
+            }
             var result = await service.PickAsync(request, cancellationToken);
             return result switch
             {

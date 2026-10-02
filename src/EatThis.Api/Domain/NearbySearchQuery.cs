@@ -5,7 +5,8 @@ namespace EatThis.Api.Domain;
 public readonly record struct NearbySearchQuery(
     double Latitude,
     double Longitude,
-    int RadiusMeters)
+    int RadiusMeters,
+    double? MinRating = null)
 {
     public const int DefaultRadiusMeters = 3000;
     public const int MinimumRadiusMeters = 100;
@@ -29,7 +30,13 @@ public readonly record struct NearbySearchQuery(
             return false;
         }
 
-        query = new NearbySearchQuery(request.Latitude, request.Longitude, radiusMeters);
+        if (request.MinRating is double minimum &&
+            (!double.IsFinite(minimum) || minimum is < 0.5 or > 5 || minimum * 2 != Math.Truncate(minimum * 2)))
+        {
+            return false;
+        }
+
+        query = new NearbySearchQuery(request.Latitude, request.Longitude, radiusMeters, request.MinRating);
         return true;
     }
 }

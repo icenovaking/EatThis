@@ -9,6 +9,8 @@ colors:
   deep-ink: "#10211d"
   muted-ink: "#5e6b66"
   rule-grey: "#cfd7d3"
+  rating-yellow: "#e9b528"
+  rating-empty: "#c0c9c4"
 typography:
   display:
     fontFamily: "Noto Sans TC, PingFang TC, Microsoft JhengHei, sans-serif"
@@ -101,6 +103,16 @@ The experience moves in one vertical read from distance to decision to destinati
 ## Colors
 
 The palette is cool, paper-like, and restrained: one jade accent provides action feedback while ink, surface, and rules do the structural work.
+
+Rating stars add a functional yellow (#e9b528) for selection and rating gray (#c0c9c4) for the remaining area. These colors are confined to rating semantics; they do not replace jade actions or serve as text colors. Numeric labels remain deep ink, so the rating does not depend on color alone.
+
+### Half-star rating control
+
+Five authored SVG stars sit between distance and the primary action. Ten native radio inputs cover the left and right halves; a separate unrestricted radio resets the value to null. Each left half selects n−0.5, each right half selects n. Selected portions fill yellow without changing on hover; the numeric label identifies the minimum threshold, such as 4.5 星以上.
+
+The shared star-size token is clamp(48px, 8vw, 56px), making each half target at least 24px wide and 48px high. The five-star row stays together; labels and unrestricted selection wrap as needed. Focus uses the existing jade outline, and a fine hover outline identifies the selectable half without previewing another threshold. The group exposes native keyboard radio behavior and accessible names. No inline per-device geometry is used.
+
+The primary action names pending distance and rating. Operation messages and recovery name the submitted snapshot. The destination sheet includes one small yellow SVG star alongside the actual rating number or 尚無評分; this result is informational rather than editable.
 
 ### Primary
 

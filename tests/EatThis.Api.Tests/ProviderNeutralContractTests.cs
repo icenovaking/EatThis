@@ -9,6 +9,18 @@ namespace EatThis.Api.Tests;
 public sealed class ProviderNeutralContractTests
 {
     [TestMethod]
+    public async Task Alternative_provider_missing_rating_is_excluded_by_threshold()
+    {
+        var service = new NearbyFoodService(new OSMLikeProvider(), new UnexpectedRandomSource());
+        var result = await service.PickAsync(new NearbyFoodRequest(25.033, 121.5654, 700, 4), CancellationToken.None);
+        Assert.IsInstanceOfType<PickResult.NoResults>(result);
+    }
+
+    private sealed class UnexpectedRandomSource : IRandomSource
+    {
+        public int Next(int maxExclusive) => throw new AssertFailedException("No eligible candidates must not invoke random source.");
+    }
+    [TestMethod]
     public async Task Alternative_provider_can_supply_the_same_selection_contract()
     {
         var provider = new OSMLikeProvider();
@@ -23,6 +35,7 @@ public sealed class ProviderNeutralContractTests
         Assert.AreEqual("osm", success!.Place.Provider);
         Assert.AreEqual("OSM Food Stall", success.Place.Name);
         Assert.AreEqual("https://www.openstreetmap.org/node/123", success.Place.NavigationUrl);
+        Assert.IsNull(success.Place.Rating);
     }
 
     private sealed class OSMLikeProvider : IPlaceProvider

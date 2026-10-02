@@ -15,6 +15,14 @@ const result = JSON.parse(
 ) as PlaceResult
 
 describe('pickNearbyFood', () => {
+  it.each([4.5, null])('serializes optional minimum rating %s without provider options', async (minRating) => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ...result, rating: 4.7 }) } as Response)
+    const response = await pickNearbyFood({ ...request, minRating }, fetcher)
+    const sentBody = JSON.parse(fetcher.mock.calls[0]![1].body)
+    expect(sentBody).toEqual({ latitude: 25.033, longitude: 121.5654, radiusMeters: 3000, minRating })
+    expect(response.rating).toBe(4.7)
+  })
+
   it('sends only location and bounded radius to the EatThis API', async () => {
     const fetcher = vi.fn().mockResolvedValue({
       ok: true,

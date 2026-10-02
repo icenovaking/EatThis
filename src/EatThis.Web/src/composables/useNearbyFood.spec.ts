@@ -43,6 +43,60 @@ function createGeolocation(
 }
 
 describe('useNearbyFood', () => {
+  it('keeps rating changes pending and submits null for unrestricted searches', async () => {
+    const geolocation = createGeolocation()
+    const pick = vi.fn().mockResolvedValue(selectedPlace)
+    const flow = useNearbyFood({ geolocation, pick })
+    expect(flow.selectedMinRating.value).toBeNull()
+    flow.selectedMinRating.value = 4.5
+    flow.selectedMinRating.value = null
+    expect(pick).not.toHaveBeenCalled()
+    expect(geolocation?.getCurrentPosition).not.toHaveBeenCalled()
+    await flow.recommend()
+    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 100, minRating: null })
+  })
+
+  it('snapshots both conditions before asynchronous location and prevents duplicate actions', async () => {
+    let resolveLocation!: PositionCallback
+    const geolocation = { getCurrentPosition: vi.fn((success: PositionCallback) => { resolveLocation = success }) }
+    const pick = vi.fn().mockResolvedValue(selectedPlace)
+    const flow = useNearbyFood({ geolocation, pick })
+    flow.selectedRadiusMeters.value = 700
+    flow.selectedMinRating.value = 4.5
+    const first = flow.recommend()
+    flow.selectedRadiusMeters.value = 1000
+    flow.selectedMinRating.value = 3.5
+    await flow.recommend()
+    resolveLocation({ coords: { latitude: 25.033, longitude: 121.5654 } } as GeolocationPosition)
+    await first
+    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 700, minRating: 4.5 })
+    expect(geolocation.getCurrentPosition).toHaveBeenCalledTimes(1)
+    expect(flow.submittedConditions.value).toEqual({ radiusMeters: 700, minRating: 4.5 })
+    expect(flow.selectedRadiusMeters.value).toBe(1000)
+    expect(flow.selectedMinRating.value).toBe(3.5)
+  })
+
+  it.each([0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5])('accepts half-star threshold %s', async (minRating) => {
+    const pick = vi.fn().mockResolvedValue(selectedPlace)
+    const flow = useNearbyFood({ geolocation: createGeolocation(), pick })
+    flow.selectedMinRating.value = minRating
+    await flow.recommend()
+    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 100, minRating })
+  })
+
+  it.each([0, -0.5, 5.5, 4.3, NaN, Infinity, '4.5', true])('rejects invalid minimum rating %s before locating', async (value) => {
+    const geolocation = createGeolocation()
+    const pick = vi.fn()
+    const flow = useNearbyFood({ geolocation, pick })
+    flow.selectedMinRating.value = value as number
+    await flow.recommend()
+    expect(geolocation?.getCurrentPosition).not.toHaveBeenCalled()
+    expect(pick).not.toHaveBeenCalled()
+    expect(flow.error.value?.code).toBe('invalid_request')
+    expect(flow.error.value?.message).toContain('0.5')
+    expect(flow.state.value).toBe('provider-error')
+  })
+
   it('starts at 100 metres and submits the default radius after one location request', async () => {
     const geolocation = createGeolocation()
     const pick = vi.fn().mockResolvedValue(selectedPlace)
@@ -57,6 +111,7 @@ describe('useNearbyFood', () => {
       latitude: 25.0330,
       longitude: 121.5654,
       radiusMeters: 100,
+      minRating: null,
     })
     expect(flow.state.value).toBe('selected')
     expect(flow.place.value).toEqual(selectedPlace)
@@ -80,6 +135,7 @@ describe('useNearbyFood', () => {
       latitude: 25.0330,
       longitude: 121.5654,
       radiusMeters: 700,
+      minRating: null,
     })
   })
 
@@ -162,12 +218,14 @@ describe('useNearbyFood', () => {
     await flow.recommend()
 
     expect(flow.state.value).toBe('no-results')
+    expect(flow.error.value?.message).toBe('本次未找到符合搜尋條件的餐飲地點。')
     expect(flow.selectedRadiusMeters.value).toBe(700)
     expect(pick).toHaveBeenCalledTimes(1)
     expect(pick).toHaveBeenCalledWith({
       latitude: 25.0330,
       longitude: 121.5654,
       radiusMeters: 700,
+      minRating: null,
     })
     expect(geolocation?.getCurrentPosition).toHaveBeenCalledTimes(1)
   })

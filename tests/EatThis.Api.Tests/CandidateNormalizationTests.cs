@@ -9,6 +9,29 @@ namespace EatThis.Api.Tests;
 public sealed class CandidateNormalizationTests
 {
     [TestMethod]
+    [DataRow(double.NaN)]
+    [DataRow(double.PositiveInfinity)]
+    [DataRow(double.NegativeInfinity)]
+    [DataRow(0.0)]
+    [DataRow(0.5)]
+    [DataRow(5.1)]
+    public void Alternative_provider_invalid_rating_is_unusable(double rating)
+    {
+        var candidate = new PlaceCandidate("Food", "Taipei", 25.033, 121.5654, 10, "https://example.com/food", "alternative", rating);
+        Assert.IsFalse(PlaceCandidateRules.IsUsable(candidate, new NearbySearchQuery(25.033, 121.5654, 700)));
+    }
+
+    [TestMethod]
+    [DataRow(null)]
+    [DataRow(1.0)]
+    [DataRow(4.3)]
+    [DataRow(5.0)]
+    public void Alternative_provider_valid_or_missing_rating_is_usable(double? rating)
+    {
+        var candidate = new PlaceCandidate("Food", "Taipei", 25.033, 121.5654, 10, "https://example.com/food", "alternative", rating);
+        Assert.IsTrue(PlaceCandidateRules.IsUsable(candidate, new NearbySearchQuery(25.033, 121.5654, 700)));
+    }
+    [TestMethod]
     public async Task Selection_filters_unusable_and_duplicate_candidates_before_picking()
     {
         var provider = new NoisyProvider();

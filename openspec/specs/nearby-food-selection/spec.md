@@ -84,169 +84,143 @@ tests:
 ---
 ### Requirement: Enforce the search radius
 
-The nearby-food flow SHALL use a default radius of 3000 meters and SHALL permit an explicit retry at 5000 meters. The frontend SHALL reject a radius outside the backend contract before submitting it.
+The nearby-food flow SHALL expose an adjustable radius from 100 through 3000 meters inclusive, SHALL use 100-meter increments, and SHALL initialize the control to 100 meters. Changing the radius SHALL only update the pending search value; it SHALL NOT request browser location or submit a nearby-food request until the user activates the primary recommendation action. The frontend SHALL reject a radius outside the backend contract before submitting it.
 
 #### Scenario: Default search
 
 - **WHEN** the user starts a recommendation without changing the radius
-- **THEN** the frontend submits radiusMeters equal to 3000
+- **THEN** the frontend requests the current browser location once and submits radiusMeters equal to 100
 
-#### Scenario: User retries after no results
+#### Scenario: User adjusts the pending radius
 
-- **WHEN** the initial 3000-meter search returns no normalized candidates and the user activates the expand-range action
-- **THEN** the frontend submits one new request with radiusMeters equal to 5000
+- **WHEN** the user changes the radius from 100 meters to 700 meters without activating the primary recommendation action
+- **THEN** the frontend displays 700 公尺 as the pending radius and does not request browser location or submit a nearby-food request
 
-#### Scenario: Radius exceeds the maximum
+#### Scenario: User searches with an adjusted radius
 
-- **WHEN** the frontend receives or constructs a radius greater than 5000 meters
-- **THEN** the frontend does not submit the request and renders a bounded-input error
+- **WHEN** the pending radius is 700 meters and the user activates the primary recommendation action
+- **THEN** the frontend requests the current browser location once and submits radiusMeters equal to 700
+
+#### Scenario: Radius reaches the maximum
+
+- **WHEN** the user moves the radius control to its maximum value and starts a recommendation
+- **THEN** the frontend submits radiusMeters equal to 3000 and does not offer a 5000-meter expansion action
+
+#### Scenario: Radius is outside the contract
+
+- **WHEN** the frontend receives or constructs a radius below 100 meters or above 3000 meters
+- **THEN** the frontend does not submit the request and renders a bounded-input error naming the valid 100-meter to 3-kilometer range
+
+##### Example: Display formatting and submitted values
+
+| radiusMeters | Displayed value | Submitted value |
+| ---: | --- | ---: |
+| 100 | 100 公尺 | 100 |
+| 900 | 900 公尺 | 900 |
+| 1000 | 1 公里 | 1000 |
+| 2300 | 2.3 公里 | 2300 |
+| 3000 | 3 公里 | 3000 |
 
 
 <!-- @trace
-source: nearby-food-random-picker
-updated: 2026-08-24
+source: refine-nearby-food-search
+updated: 2026-10-02
 code:
-  - src/EatThis.Api/Application/IRandomSource.cs
-  - src/EatThis.Api/Properties/launchSettings.json
-  - src/EatThis.Web/src/App.vue
-  - tests/EatThis.Api.Tests/ConfigurableApiFactory.cs
-  - src/EatThis.Web/src/test-setup.ts
-  - src/EatThis.Web/.env.example
-  - src/EatThis.Web/index.html
-  - docs/development.md
-  - src/EatThis.Api/EatThis.Api.csproj
-  - src/EatThis.Web/src/geolocation.ts
-  - src/EatThis.Web/vite.config.ts
   - src/EatThis.Api/Contracts/NearbyFoodContracts.cs
-  - src/EatThis.Api/Application/PlaceCandidateRules.cs
-  - tests/fixtures/nearby-food-error.json
-  - tests/EatThis.Api.Tests/RateLimitTests.cs
-  - src/EatThis.Api/Infrastructure/GooglePlacesOptions.cs
-  - src/EatThis.Api/Program.cs
-  - tests/EatThis.Api.Tests/EatThis.Api.Tests.csproj
-  - src/EatThis.Web/src/api/nearbyFoodApi.ts
-  - tests/EatThis.Api.Tests/EatThisApiFactory.cs
-  - src/EatThis.Web/tsconfig.json
-  - tests/EatThis.Api.Tests/ProxyRestrictionTests.cs
-  - tests/EatThis.Api.Tests/RandomSelectionTests.cs
-  - scripts/verify-security.ps1
-  - src/EatThis.Web/src/composables/useNearbyFood.ts
-  - src/EatThis.Web/src/styles.css
-  - src/EatThis.Web/src/types.ts
-  - src/EatThis.Api/Infrastructure/PlaceProviderExceptions.cs
-  - src/EatThis.Web/dist/index.html
-  - src/EatThis.Api/appsettings.json
-  - src/EatThis.Web/src/main.ts
-  - docs/development-secrets.md
-  - tests/fixtures/nearby-food-success.json
-  - tests/EatThis.Api.Tests/SecretConfigurationTests.cs
-  - src/EatThis.Api/Application/NearbyFoodService.cs
-  - src/EatThis.Web/tsconfig.app.json
-  - tests/EatThis.Api.Tests/ProviderNeutralContractTests.cs
-  - src/EatThis.Api/Domain/NearbySearchQuery.cs
-  - src/EatThis.Web/dist/assets/index-Cjltd0xD.js
-  - tests/EatThis.Api.Tests/FailureResponseTests.cs
-  - src/EatThis.Api/appsettings.example.json
-  - src/EatThis.Api/Infrastructure/GooglePlacesProvider.cs
-  - src/EatThis.Api/Application/IPlaceProvider.cs
-  - src/EatThis.Web/EatThis.Web.esproj
-  - src/EatThis.Web/package.json
-  - src/EatThis.Web/tsconfig.node.json
-  - tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs
-  - EatThis.slnx
-  - src/EatThis.Web/dist/assets/index-8zmJ-341.css
+  - README.md
   - docs/ui/eatthis-mobile-web-direction.md
+  - src/EatThis.Api/Program.cs
+  - src/EatThis.Web/dist/index.html
+  - src/EatThis.Web/src/types.ts
+  - src/EatThis.Web/dist/assets/index-DXQgLy6m.js
+  - DESIGN.md
+  - src/EatThis.Api/Domain/NearbySearchQuery.cs
   - tests/EatThis.Api.Tests/GooglePlacesProviderTests.cs
-  - tests/EatThis.Api.Tests/ContractFixtureTests.cs
+  - tests/EatThis.Api.Tests/RandomSelectionTests.cs
+  - tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs
+  - tests/EatThis.Api.Tests/ProviderNeutralContractTests.cs
+  - src/EatThis.Web/dist/assets/index-D4IjCKov.css
+  - tests/fixtures/nearby-food-success.json
+  - src/EatThis.Api/Infrastructure/GooglePlacesProvider.cs
+  - src/EatThis.Web/src/App.vue
+  - src/EatThis.Api/Application/NearbyFoodService.cs
+  - src/EatThis.Api/Application/PlaceCandidateRules.cs
+  - src/EatThis.Web/dist/assets/index-CXt3g_nB.css
+  - src/EatThis.Web/src/composables/useNearbyFood.ts
   - tests/EatThis.Api.Tests/CandidateNormalizationTests.cs
   - PRODUCT.md
+  - src/EatThis.Web/src/styles.css
+  - tests/EatThis.Api.Tests/ContractFixtureTests.cs
+  - src/EatThis.Web/dist/assets/index-C7jsj6mC.js
 tests:
-  - src/EatThis.Web/src/composables/useNearbyFood.spec.ts
   - src/EatThis.Web/src/app.spec.ts
   - src/EatThis.Web/src/api/nearbyFoodApi.spec.ts
+  - src/EatThis.Web/src/composables/useNearbyFood.spec.ts
 -->
 
 ---
 ### Requirement: Select exactly one nearby food place
 
-The application SHALL present exactly one selected place after a successful recommendation request. The selection SHALL be made from the normalized candidates returned by the backend, after invalid candidates have been removed.
+The application SHALL present exactly one selected place after a successful recommendation request. Selection SHALL be made from normalized candidates after invalid candidates have been removed and the requested minimum rating has been applied. A no-results response SHALL preserve the pending controls and SHALL NOT expand the radius, lower the threshold or submit another search automatically. Recovery SHALL describe the submitted conditions and refer to candidates found in this search, not assert that every place in the geographic area was evaluated.
 
 #### Scenario: Multiple candidates are returned
 
 - **GIVEN** the backend returns candidates named A, B, and C
 - **WHEN** the recommendation request succeeds
-- **THEN** the frontend renders exactly one of A, B, or C and does not render a multi-result directory as the primary result
+- **THEN** the frontend renders exactly one eligible candidate and does not render a multi-result directory as the primary result
 
 ##### Example: Candidate selection
 
-- **GIVEN** candidates A, B, and C are returned by the provider
-- **WHEN** the backend selects a candidate
-- **THEN** the response contains exactly one candidate and the frontend displays that candidate
+- **GIVEN** A has rating 3.9, B has rating 4.0, C has rating 4.3 and D has no rating
+- **WHEN** the backend selects a candidate for minRating 4.0
+- **THEN** only B or C is selected and the frontend displays that one candidate
 
-#### Scenario: No candidates are returned
+#### Scenario: No candidates exist below the maximum radius
 
-- **WHEN** the backend reports that no normalized candidate exists within the requested radius
-- **THEN** the frontend renders a no-results state and offers the explicit 5000-meter retry action
+- **WHEN** the backend reports no eligible candidate for submitted radius 700 meters and minRating 4.5
+- **THEN** the frontend renders a no-results state naming 700 meters and 4.5 stars or higher, preserves pending controls, and offers lowering the minimum rating or increasing the radius before an explicit new search
+
+#### Scenario: No candidates exist at the maximum radius
+
+- **WHEN** the backend reports no eligible candidate for submitted radius 3000 meters and minRating 4.5
+- **THEN** the frontend keeps pending controls, names the submitted conditions and offers lowering the threshold or explicitly retrying without exceeding 3000 meters
+
+#### Scenario: Unrestricted search has no results
+
+- **WHEN** a submitted search without a minimum rating returns no results
+- **THEN** the frontend identifies unrestricted rating and the submitted radius, offers increasing the radius only below 3000 meters, and provides an explicit retry without automatic changes
 
 
 <!-- @trace
-source: nearby-food-random-picker
-updated: 2026-08-24
+source: add-minimum-rating-filter
+updated: 2026-10-02
 code:
-  - src/EatThis.Api/Application/IRandomSource.cs
-  - src/EatThis.Api/Properties/launchSettings.json
-  - src/EatThis.Web/src/App.vue
-  - tests/EatThis.Api.Tests/ConfigurableApiFactory.cs
-  - src/EatThis.Web/src/test-setup.ts
-  - src/EatThis.Web/.env.example
-  - src/EatThis.Web/index.html
-  - docs/development.md
-  - src/EatThis.Api/EatThis.Api.csproj
-  - src/EatThis.Web/src/geolocation.ts
-  - src/EatThis.Web/vite.config.ts
-  - src/EatThis.Api/Contracts/NearbyFoodContracts.cs
-  - src/EatThis.Api/Application/PlaceCandidateRules.cs
-  - tests/fixtures/nearby-food-error.json
-  - tests/EatThis.Api.Tests/RateLimitTests.cs
-  - src/EatThis.Api/Infrastructure/GooglePlacesOptions.cs
-  - src/EatThis.Api/Program.cs
-  - tests/EatThis.Api.Tests/EatThis.Api.Tests.csproj
-  - src/EatThis.Web/src/api/nearbyFoodApi.ts
-  - tests/EatThis.Api.Tests/EatThisApiFactory.cs
-  - src/EatThis.Web/tsconfig.json
-  - tests/EatThis.Api.Tests/ProxyRestrictionTests.cs
-  - tests/EatThis.Api.Tests/RandomSelectionTests.cs
-  - scripts/verify-security.ps1
+  - src/EatThis.Web/dist/assets/index-C7jsj6mC.js
   - src/EatThis.Web/src/composables/useNearbyFood.ts
-  - src/EatThis.Web/src/styles.css
-  - src/EatThis.Web/src/types.ts
-  - src/EatThis.Api/Infrastructure/PlaceProviderExceptions.cs
-  - src/EatThis.Web/dist/index.html
-  - src/EatThis.Api/appsettings.json
-  - src/EatThis.Web/src/main.ts
-  - docs/development-secrets.md
-  - tests/fixtures/nearby-food-success.json
-  - tests/EatThis.Api.Tests/SecretConfigurationTests.cs
-  - src/EatThis.Api/Application/NearbyFoodService.cs
-  - src/EatThis.Web/tsconfig.app.json
-  - tests/EatThis.Api.Tests/ProviderNeutralContractTests.cs
-  - src/EatThis.Api/Domain/NearbySearchQuery.cs
-  - src/EatThis.Web/dist/assets/index-Cjltd0xD.js
-  - tests/EatThis.Api.Tests/FailureResponseTests.cs
-  - src/EatThis.Api/appsettings.example.json
-  - src/EatThis.Api/Infrastructure/GooglePlacesProvider.cs
-  - src/EatThis.Api/Application/IPlaceProvider.cs
-  - src/EatThis.Web/EatThis.Web.esproj
-  - src/EatThis.Web/package.json
-  - src/EatThis.Web/tsconfig.node.json
-  - tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs
-  - EatThis.slnx
-  - src/EatThis.Web/dist/assets/index-8zmJ-341.css
-  - docs/ui/eatthis-mobile-web-direction.md
-  - tests/EatThis.Api.Tests/GooglePlacesProviderTests.cs
   - tests/EatThis.Api.Tests/ContractFixtureTests.cs
+  - tests/EatThis.Api.Tests/RandomSelectionTests.cs
+  - src/EatThis.Web/src/App.vue
+  - src/EatThis.Web/src/styles.css
+  - tests/EatThis.Api.Tests/GooglePlacesProviderTests.cs
+  - docs/ui/eatthis-mobile-web-direction.md
+  - src/EatThis.Api/Contracts/NearbyFoodContracts.cs
+  - src/EatThis.Api/Infrastructure/GooglePlacesProvider.cs
+  - tests/EatThis.Api.Tests/ProviderNeutralContractTests.cs
+  - src/EatThis.Api/Application/PlaceCandidateRules.cs
+  - README.md
+  - src/EatThis.Web/dist/assets/index-CXt3g_nB.css
+  - src/EatThis.Web/dist/index.html
+  - src/EatThis.Web/src/types.ts
+  - src/EatThis.Web/dist/assets/index-DXQgLy6m.js
+  - tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs
+  - tests/fixtures/nearby-food-success.json
   - tests/EatThis.Api.Tests/CandidateNormalizationTests.cs
+  - src/EatThis.Web/dist/assets/index-D4IjCKov.css
   - PRODUCT.md
+  - src/EatThis.Api/Application/NearbyFoodService.cs
+  - DESIGN.md
+  - src/EatThis.Api/Domain/NearbySearchQuery.cs
+  - src/EatThis.Api/Program.cs
 tests:
   - src/EatThis.Web/src/composables/useNearbyFood.spec.ts
   - src/EatThis.Web/src/app.spec.ts
@@ -256,12 +230,17 @@ tests:
 ---
 ### Requirement: Display essential place information
 
-The selected-place view SHALL display the selected place name, address, distance in meters or a localized distance unit, and an external navigation action using the returned navigationUrl.
+The selected-place view SHALL display the selected place name, address, distance in meters or a localized distance unit, and an external navigation action using the returned navigationUrl. It SHALL also display the actual normalized numeric rating when present, without rounding it to the chosen half-star threshold, or 尚無評分 when rating is missing or null. Result rating SHALL be informational, not a rating-input control.
 
 #### Scenario: Selected place is displayed
 
-- **WHEN** the backend returns a selected place with name, address, distanceMeters, and navigationUrl
-- **THEN** the frontend displays those values in the selected-place view
+- **WHEN** the backend returns a selected place with name, address, distanceMeters, navigationUrl and rating 4.3
+- **THEN** the frontend displays those values and identifies the rating as 4.3 rather than rounding it to 4.5
+
+#### Scenario: Rating is unavailable
+
+- **WHEN** the frontend receives a selected place with null or omitted rating
+- **THEN** the result displays 尚無評分 and does not invent a zero-star score
 
 #### Scenario: User opens navigation
 
@@ -270,63 +249,35 @@ The selected-place view SHALL display the selected place name, address, distance
 
 
 <!-- @trace
-source: nearby-food-random-picker
-updated: 2026-08-24
+source: add-minimum-rating-filter
+updated: 2026-10-02
 code:
-  - src/EatThis.Api/Application/IRandomSource.cs
-  - src/EatThis.Api/Properties/launchSettings.json
-  - src/EatThis.Web/src/App.vue
-  - tests/EatThis.Api.Tests/ConfigurableApiFactory.cs
-  - src/EatThis.Web/src/test-setup.ts
-  - src/EatThis.Web/.env.example
-  - src/EatThis.Web/index.html
-  - docs/development.md
-  - src/EatThis.Api/EatThis.Api.csproj
-  - src/EatThis.Web/src/geolocation.ts
-  - src/EatThis.Web/vite.config.ts
-  - src/EatThis.Api/Contracts/NearbyFoodContracts.cs
-  - src/EatThis.Api/Application/PlaceCandidateRules.cs
-  - tests/fixtures/nearby-food-error.json
-  - tests/EatThis.Api.Tests/RateLimitTests.cs
-  - src/EatThis.Api/Infrastructure/GooglePlacesOptions.cs
-  - src/EatThis.Api/Program.cs
-  - tests/EatThis.Api.Tests/EatThis.Api.Tests.csproj
-  - src/EatThis.Web/src/api/nearbyFoodApi.ts
-  - tests/EatThis.Api.Tests/EatThisApiFactory.cs
-  - src/EatThis.Web/tsconfig.json
-  - tests/EatThis.Api.Tests/ProxyRestrictionTests.cs
-  - tests/EatThis.Api.Tests/RandomSelectionTests.cs
-  - scripts/verify-security.ps1
+  - src/EatThis.Web/dist/assets/index-C7jsj6mC.js
   - src/EatThis.Web/src/composables/useNearbyFood.ts
-  - src/EatThis.Web/src/styles.css
-  - src/EatThis.Web/src/types.ts
-  - src/EatThis.Api/Infrastructure/PlaceProviderExceptions.cs
-  - src/EatThis.Web/dist/index.html
-  - src/EatThis.Api/appsettings.json
-  - src/EatThis.Web/src/main.ts
-  - docs/development-secrets.md
-  - tests/fixtures/nearby-food-success.json
-  - tests/EatThis.Api.Tests/SecretConfigurationTests.cs
-  - src/EatThis.Api/Application/NearbyFoodService.cs
-  - src/EatThis.Web/tsconfig.app.json
-  - tests/EatThis.Api.Tests/ProviderNeutralContractTests.cs
-  - src/EatThis.Api/Domain/NearbySearchQuery.cs
-  - src/EatThis.Web/dist/assets/index-Cjltd0xD.js
-  - tests/EatThis.Api.Tests/FailureResponseTests.cs
-  - src/EatThis.Api/appsettings.example.json
-  - src/EatThis.Api/Infrastructure/GooglePlacesProvider.cs
-  - src/EatThis.Api/Application/IPlaceProvider.cs
-  - src/EatThis.Web/EatThis.Web.esproj
-  - src/EatThis.Web/package.json
-  - src/EatThis.Web/tsconfig.node.json
-  - tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs
-  - EatThis.slnx
-  - src/EatThis.Web/dist/assets/index-8zmJ-341.css
-  - docs/ui/eatthis-mobile-web-direction.md
-  - tests/EatThis.Api.Tests/GooglePlacesProviderTests.cs
   - tests/EatThis.Api.Tests/ContractFixtureTests.cs
+  - tests/EatThis.Api.Tests/RandomSelectionTests.cs
+  - src/EatThis.Web/src/App.vue
+  - src/EatThis.Web/src/styles.css
+  - tests/EatThis.Api.Tests/GooglePlacesProviderTests.cs
+  - docs/ui/eatthis-mobile-web-direction.md
+  - src/EatThis.Api/Contracts/NearbyFoodContracts.cs
+  - src/EatThis.Api/Infrastructure/GooglePlacesProvider.cs
+  - tests/EatThis.Api.Tests/ProviderNeutralContractTests.cs
+  - src/EatThis.Api/Application/PlaceCandidateRules.cs
+  - README.md
+  - src/EatThis.Web/dist/assets/index-CXt3g_nB.css
+  - src/EatThis.Web/dist/index.html
+  - src/EatThis.Web/src/types.ts
+  - src/EatThis.Web/dist/assets/index-DXQgLy6m.js
+  - tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs
+  - tests/fixtures/nearby-food-success.json
   - tests/EatThis.Api.Tests/CandidateNormalizationTests.cs
+  - src/EatThis.Web/dist/assets/index-D4IjCKov.css
   - PRODUCT.md
+  - src/EatThis.Api/Application/NearbyFoodService.cs
+  - DESIGN.md
+  - src/EatThis.Api/Domain/NearbySearchQuery.cs
+  - src/EatThis.Api/Program.cs
 tests:
   - src/EatThis.Web/src/composables/useNearbyFood.spec.ts
   - src/EatThis.Web/src/app.spec.ts
@@ -485,4 +436,134 @@ tests:
   - src/EatThis.Web/src/composables/useNearbyFood.spec.ts
   - src/EatThis.Web/src/app.spec.ts
   - src/EatThis.Web/src/api/nearbyFoodApi.spec.ts
+-->
+
+---
+
+### Requirement: Present a mobile-first daily-use search surface
+
+The mobile web frontend SHALL present the radius control, primary recommendation action, operation state, and selected place in a single task-oriented reading order. The replacement visual system SHALL keep controls and status text visually distinct without relying on repeated rounded-card containers or decorative measurement indicators.
+
+#### Scenario: Search surface at a phone viewport
+
+- **WHEN** the page is rendered at a width of 390 CSS pixels
+- **THEN** the current radius, radius control, and primary recommendation action are visible in the initial task area without horizontal scrolling
+
+#### Scenario: Long result content at the minimum supported width
+
+- **WHEN** a selected place with a long name and address is rendered at a width of 320 CSS pixels
+- **THEN** the place name and address wrap within the result region, the navigation action remains usable, and the page has no horizontal overflow
+
+<!-- @trace
+source: refine-nearby-food-search
+updated: 2026-10-02
+-->
+
+---
+
+### Requirement: Present provider-localized place text
+
+The frontend SHALL render the normalized place name and address returned by the backend without client-side transliteration or replacement. A non-empty fallback name returned by the provider SHALL remain visible when a Traditional Chinese translation is unavailable.
+
+#### Scenario: Traditional Chinese place data is returned
+
+- **WHEN** the backend returns name equal to 老地方牛肉麵 and address equal to 新北市板橋區文化路一段 1 號
+- **THEN** the selected-place view displays those Traditional Chinese strings unchanged
+
+#### Scenario: Provider fallback text is returned
+
+- **WHEN** the backend returns a valid non-empty Latin-script name because no zh-TW translation exists
+- **THEN** the selected-place view displays that fallback name instead of hiding the recommendation
+
+<!-- @trace
+source: refine-nearby-food-search
+updated: 2026-10-02
+-->
+
+---
+
+### Requirement: Attribute Google Maps place content clearly
+
+When a selected place has provider equal to google, the frontend SHALL display an unmodified official Google Maps attribution asset inside the selected-place container. The attribution SHALL be visible, legible, and exposed to assistive technology as Google Maps; the raw provider value SHALL NOT be rendered as a standalone user-facing label.
+
+#### Scenario: Google place result is displayed
+
+- **WHEN** the frontend renders a selected place whose provider is google
+- **THEN** the result container includes the official Google Maps attribution near its lower content boundary and does not display the standalone text GOOGLE
+
+#### Scenario: Attribution is announced accessibly
+
+- **WHEN** assistive technology traverses a Google-backed selected-place result
+- **THEN** the attribution exposes the accessible name Google Maps
+
+<!-- @trace
+source: refine-nearby-food-search
+updated: 2026-10-02
+-->
+
+---
+
+### Requirement: Choose a minimum rating using half-star controls
+
+The frontend SHALL provide five selectable stars below the radius control with ten choices from 0.5 through 5.0 in increments of 0.5. The left half of star n SHALL select n minus 0.5 and its right half SHALL select n. It SHALL initialize to unrestricted rating, provide an explicit 不限評分 option, fill the selected rating yellow including partial stars, leave the remaining stars gray, and display the selected numeric threshold as minimum-rating text. Changing or clearing the rating SHALL NOT request location or call the API. The control SHALL expose accessible option names and checked states and support pointer, touch, keyboard focus, Space selection and directional navigation through half-star values and the unrestricted option. Selection SHALL NOT rely on color alone.
+
+#### Scenario: Select a whole-star threshold
+
+- **WHEN** the user selects the right half of the fourth star
+- **THEN** the pending threshold is 4.0, four stars appear filled yellow, the remaining star appears gray, and the text is 4 星以上 without a location or API call
+
+#### Scenario: Select a half-star threshold
+
+- **WHEN** the user selects the left half of the fifth star
+- **THEN** the pending threshold is 4.5, four and a half stars appear filled yellow, and the text is 4.5 星以上 without a location or API call
+
+##### Example: Left and right halves
+
+| Interaction | Pending minRating | Filled stars |
+| --- | ---: | ---: |
+| First star left | 0.5 | 0.5 |
+| Fourth star left | 3.5 | 3.5 |
+| Fourth star right | 4.0 | 4.0 |
+| Fifth star right | 5.0 | 5.0 |
+
+#### Scenario: Clear the threshold
+
+- **WHEN** the user selects 不限評分 after selecting 4.5
+- **THEN** the pending threshold becomes null, all five stars become gray, the text is 不限評分, and no location or API call occurs
+
+#### Scenario: Keyboard and assistive operation
+
+- **WHEN** the user focuses the rating group and navigates from 4.0 to the next higher numeric option using the keyboard
+- **THEN** 4.5 becomes selected, the focused option is identifiable, and assistive technology can identify its minimum-rating name and selected state
+
+<!-- @trace
+source: add-minimum-rating-filter
+updated: 2026-10-02
+-->
+
+---
+
+### Requirement: Snapshot distance and rating for each recommendation
+
+The frontend SHALL snapshot the selected radius and optional minimum rating before the first asynchronous operation of the recommendation action. It SHALL validate the rating as null or one of the ten half-star choices before requesting location and SHALL submit the snapshot with the one requested location. Changes to pending controls during locating or searching SHALL affect only a subsequent explicit recommendation. Result and no-results descriptions SHALL identify the submitted conditions rather than later pending changes. Duplicate recommendation actions SHALL remain disabled while busy.
+
+#### Scenario: Submit both selected conditions
+
+- **WHEN** the user selects a radius of 700 meters and a minimum rating of 4.5 and activates the primary action
+- **THEN** the frontend requests location once and submits one request with radiusMeters 700 and minRating 4.5
+
+#### Scenario: Change conditions while locating
+
+- **GIVEN** the user submitted radius 700 and minRating 4.5
+- **WHEN** the user changes pending values to radius 1000 and minRating 3.5 before location resolves
+- **THEN** the in-flight request still submits 700 and 4.5 and its result or no-results description identifies those submitted values
+
+#### Scenario: Reject an invalid pending threshold
+
+- **WHEN** the frontend constructs a non-null minimum rating of 4.3, 0, or 5.5
+- **THEN** the frontend presents a bounded-input error and makes no location or API call
+
+<!-- @trace
+source: add-minimum-rating-filter
+updated: 2026-10-02
 -->

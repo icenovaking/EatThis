@@ -18,9 +18,10 @@ EatThis is a calm, precise city utility. It starts with the user's walkable dist
 - The header is a small EatThis wordmark with a quiet city-guide descriptor.
 - `今天，吃什麼？` is the first strong content object and is supported by one sentence explaining on-demand location use.
 - The distance control is a labeled range input with a visible current value. It starts at `100 公尺`, uses 100-metre steps, and ends at `3 公里`.
-- The primary green action is labelled `幫我決定`; its secondary line always names the current range or the busy state.
+- Five stars below distance select a minimum rating in 0.5-star steps from 0.5 to 5. Left half selects n−0.5 and right half n; the default and explicit reset are 不限評分. Selected portions fill yellow and the numeric threshold remains visible.
+- The primary green action is labelled `幫我決定`; its secondary line names pending radius and rating or the busy state.
 - The aria-live status follows the action in the same reading order. Loading, permission, provider, and no-result states include plain-language recovery.
-- A selected destination sheet follows the status and contains one name, address, distance, external map action, and the Google Maps attribution at its lower boundary.
+- A selected destination sheet follows the status and contains one name, address, distance, actual rating or 尚無評分, external map action, and the Google Maps attribution at its lower boundary.
 
 ## Material and visual system
 
@@ -32,6 +33,8 @@ EatThis is a calm, precise city utility. It starts with the user's walkable dist
 | Secondary ink | `#5E6B66` | Supporting copy, labels, recovery guidance |
 | Rule | `#CFD7D3` | Section boundaries and detail separators |
 | Jade action | `#087A63` | Primary action, range value, selected status |
+| Rating selection | `#E9B528` | Filled rating stars only; numeric text remains deep ink |
+| Rating remainder | `#C0C9C4` | Unselected star portions |
 
 Typography uses the existing system Traditional Chinese sans stack. Size and weight establish hierarchy; tracking remains restrained and no webfont is added. The page uses fine rules and whitespace rather than repeated cards, gradients, decorative grids, glass effects, or heavy shadows. Control and destination radii stay between 0 and 6px. Long names and addresses wrap naturally rather than being clipped.
 
@@ -45,7 +48,7 @@ The page is one vertical task surface:
 4. Read the announced state and, on success, one destination sheet.
 5. Continue through a normal external HTTPS link to Google Maps.
 
-An empty result keeps the chosen radius visible. Below the maximum, the copy asks the user to move the control and explicitly search again. At the maximum, the copy offers an explicit retry using that same bound. No search widens itself.
+Rating changes and reset have no location or API side effect. The primary action snapshots radius and minRating before requesting location; edits during loading affect the next action. An empty result identifies the submitted snapshot while preserving the pending controls. It offers lowering the rating, increasing distance only below 3000 metres, or explicitly retrying. No condition relaxes itself. A result displays the actual provider rating (for example 4.3) rather than rounding to a half star.
 
 ## State contract
 
@@ -67,6 +70,7 @@ An empty result keeps the chosen radius visible. Below the maximum, the copy ask
 - At 320px, long Traditional Chinese and Latin names, addresses, and the navigation action stay inside the destination sheet and wrap at safe boundaries.
 - Focus rings use a high-contrast jade outline with a clear offset. Links retain an underline offset and visible destination intent.
 - The range input exposes `min=100`, `max=3000`, `step=100`, an explicit label, and a formatted `aria-valuetext`.
+- Rating uses eleven native named radio choices (ten thresholds plus unrestricted), descriptive accessible names, checked states and visible focus; arrows and Space use native radio behavior. Each half target is at least 24px wide and 44px high. Five stars stay together and supporting text/reset wrap without per-device hard-coding.
 - Status text, headings, normal link semantics, and the Google Maps image alt text carry meaning independently of color.
 - `prefers-reduced-motion` disables authored transitions; all useful content remains visible without motion.
 - Selection color and scrollbar treatment derive from the same paper, ink, rule, and jade palette.
@@ -78,3 +82,7 @@ An empty result keeps the chosen radius visible. Below the maximum, the copy ask
 ## Release boundary
 
 This surface ships together with the API's 100-to-3000-metre validation and server-controlled Google localization. The public request and normalized response remain provider-neutral. No embedded map, extra place list, new provider, translation service, stored preference, photo, review, or database change is part of this direction.
+
+The rating extension adds optional nullable minRating and nullable rating; filtering occurs before deduplication and random selection, and unrated candidates qualify only when unrestricted. The fixed places.rating request uses Nearby Search Enterprise billing, even for unrestricted searches, and considers only the at most 20 candidates returned by Google. No-results copy means this search found no eligible candidate, not that the whole geographic area has none. Deploy the backend before the frontend; rollback the frontend first. Archive refine-nearby-food-search before add-minimum-rating-filter so its distance/localization baseline remains intact.
+
+Automated contract/DOM checks and browser verification are distinct. The half-star change's 320px, 390px and desktop pointer/touch/keyboard screenshots and assistive-technology checks remain pending when no browser runtime is connected; this is tracked in the change tasks rather than inferred from passing Vitest cases.

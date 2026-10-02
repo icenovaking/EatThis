@@ -18,7 +18,7 @@ public sealed class GooglePlacesProvider(
     public const int DefaultTimeoutSeconds = 10;
 
     private const string FieldMask =
-        "places.displayName,places.formattedAddress,places.location,places.googleMapsUri";
+        "places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating";
     private const string LanguageCode = "zh-TW";
 
     private static readonly string[] IncludedTypes =
@@ -149,7 +149,8 @@ public sealed class GooglePlacesProvider(
             place.Location.Longitude,
             Math.Round(distanceMeters, 1),
             place.GoogleMapsUri,
-            "google");
+            "google",
+            place.Rating is double rating && double.IsFinite(rating) && rating is >= 1 and <= 5 ? rating : null);
     }
 }
 
@@ -199,7 +200,8 @@ internal sealed record GooglePlace(
     [property: JsonPropertyName("displayName")] GoogleDisplayName? DisplayName,
     [property: JsonPropertyName("formattedAddress")] string? FormattedAddress,
     [property: JsonPropertyName("location")] GoogleLatLng? Location,
-    [property: JsonPropertyName("googleMapsUri")] string? GoogleMapsUri);
+    [property: JsonPropertyName("googleMapsUri")] string? GoogleMapsUri,
+    [property: JsonPropertyName("rating")] double? Rating);
 
 internal sealed record GoogleDisplayName(
     [property: JsonPropertyName("text")] string? Text);

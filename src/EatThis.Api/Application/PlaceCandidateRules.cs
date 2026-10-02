@@ -16,6 +16,8 @@ public static class PlaceCandidateRules
                double.IsFinite(candidate.DistanceMeters) &&
                candidate.DistanceMeters >= 0 &&
                candidate.DistanceMeters <= query.RadiusMeters &&
+               (candidate.Rating is null ||
+                (double.IsFinite(candidate.Rating.Value) && candidate.Rating.Value is >= 1 and <= 5)) &&
                IsHttpsUrl(candidate.NavigationUrl) &&
                !string.IsNullOrWhiteSpace(candidate.Provider);
     }

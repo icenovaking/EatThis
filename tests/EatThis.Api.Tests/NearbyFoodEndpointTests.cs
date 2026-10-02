@@ -10,6 +10,105 @@ namespace EatThis.Api.Tests;
 public sealed class NearbyFoodEndpointTests
 {
     [TestMethod]
+    [DataRow(double.NaN)]
+    [DataRow(double.PositiveInfinity)]
+    [DataRow(double.NegativeInfinity)]
+    public void Nonfinite_minimum_fails_domain_validation(double minimum)
+    {
+        Assert.IsFalse(EatThis.Api.Domain.NearbySearchQuery.TryCreate(
+            new NearbyFoodRequest(25.033, 121.5654, 700, minimum), out _));
+    }
+    [TestMethod]
+    [DataRow(0.5)]
+    [DataRow(1.0)]
+    [DataRow(1.5)]
+    [DataRow(2.0)]
+    [DataRow(2.5)]
+    [DataRow(3.0)]
+    [DataRow(3.5)]
+    [DataRow(4.0)]
+    [DataRow(4.5)]
+    [DataRow(5.0)]
+    public async Task Every_half_star_threshold_is_forwarded_once(double minRating)
+    {
+        await using var factory = new EatThisApiFactory();
+        using var client = factory.CreateClient();
+        using var response = await client.PostAsJsonAsync("/api/nearby-food/pick",
+            new { latitude = 25.033, longitude = 121.5654, radiusMeters = 700, minRating });
+        Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
+        var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        Assert.AreEqual("no_results", error?.ErrorCode);
+        Assert.AreEqual("本次未找到符合搜尋條件的餐飲地點。", error?.Message);
+        Assert.AreEqual(0, error?.RetryAfterSeconds);
+        Assert.AreEqual(1, factory.ProviderCalls);
+        Assert.AreEqual(minRating, factory.LastQuery?.MinRating);
+    }
+
+    [TestMethod]
+    public async Task Explicit_null_minimum_remains_unrestricted()
+    {
+        await using var factory = new EatThisApiFactory();
+        using var client = factory.CreateClient();
+        using var response = await client.PostAsJsonAsync("/api/nearby-food/pick",
+            new { latitude = 25.033, longitude = 121.5654, radiusMeters = 700, minRating = (double?)null });
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.IsNull(factory.LastQuery?.MinRating);
+        Assert.AreEqual(1, factory.ProviderCalls);
+    }
+    [TestMethod]
+    [DataRow("0")]
+    [DataRow("-0.5")]
+    [DataRow("5.5")]
+    [DataRow("4.3")]
+    [DataRow("\"4.5\"")]
+    [DataRow("true")]
+    [DataRow("[]")]
+    [DataRow("{}")]
+    [DataRow("1e400")]
+    [DataRow("NaN")]
+    public async Task Invalid_rating_returns_stable_error_without_provider_call(string rating)
+    {
+        await using var factory = new EatThisApiFactory();
+        using var client = factory.CreateClient();
+        using var body = new StringContent(
+            "{\"latitude\":25.033,\"longitude\":121.5654,\"radiusMeters\":700,\"minRating\":" + rating + "}",
+            System.Text.Encoding.UTF8, "application/json");
+        using var response = await client.PostAsync("/api/nearby-food/pick", body);
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        Assert.AreEqual("invalid_request", error?.ErrorCode);
+        Assert.AreEqual(0, factory.ProviderCalls);
+    }
+
+    [TestMethod]
+    [DataRow("{", "application/json")]
+    [DataRow("null", "application/json")]
+    [DataRow("", "application/json")]
+    [DataRow("{}", "text/plain")]
+    public async Task Invalid_body_returns_stable_error_without_provider_call(string payload, string contentType)
+    {
+        await using var factory = new EatThisApiFactory();
+        using var client = factory.CreateClient();
+        using var body = new StringContent(payload, System.Text.Encoding.UTF8, contentType);
+        using var response = await client.PostAsync("/api/nearby-food/pick", body);
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        Assert.AreEqual("invalid_request", error?.ErrorCode);
+        Assert.AreEqual(0, factory.ProviderCalls);
+    }
+
+    [TestMethod]
+    public async Task Unrestricted_response_includes_nullable_rating()
+    {
+        await using var factory = new EatThisApiFactory();
+        using var client = factory.CreateClient();
+        using var response = await client.PostAsJsonAsync("/api/nearby-food/pick",
+            new { latitude = 25.033, longitude = 121.5654, radiusMeters = 700 });
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        using var json = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.AreEqual(System.Text.Json.JsonValueKind.Null, json.RootElement.GetProperty("rating").ValueKind);
+    }
+    [TestMethod]
     public async Task Valid_request_returns_one_selected_place()
     {
         await using var factory = new EatThisApiFactory();

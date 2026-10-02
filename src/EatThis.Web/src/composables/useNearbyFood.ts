@@ -20,6 +20,20 @@ const defaultErrorMessage = '附近地點服務暫時無法使用，請稍後再
 export const MINIMUM_RADIUS_METERS = 100
 export const MAXIMUM_RADIUS_METERS = 3000
 export const RADIUS_STEP_METERS = 100
+export const MINIMUM_RATING = 0.5
+export const MAXIMUM_RATING = 5
+export const RATING_STEP = 0.5
+
+export interface SearchConditions {
+  radiusMeters: number
+  minRating: number | null
+}
+
+function isValidMinRating(value: number | null): boolean {
+  return value === null || (typeof value === 'number' && Number.isFinite(value) &&
+    value >= MINIMUM_RATING && value <= MAXIMUM_RATING &&
+    Number.isInteger(value / RATING_STEP))
+}
 
 function isValidRadius(radiusMeters: number): boolean {
   return Number.isInteger(radiusMeters) &&
@@ -39,6 +53,8 @@ export function useNearbyFood(options: NearbyFoodOptions = {}) {
   const place = ref<PlaceResult | null>(null)
   const error = ref<FlowError | null>(null)
   const selectedRadiusMeters = ref(MINIMUM_RADIUS_METERS)
+  const selectedMinRating = ref<number | null>(null)
+  const submittedConditions = ref<SearchConditions | null>(null)
   const currentLocation = ref<{ latitude: number; longitude: number } | null>(null)
   const isBusy = computed(() => state.value === 'locating' || state.value === 'searching')
   const pick = options.pick ?? defaultPickNearbyFood
@@ -52,11 +68,24 @@ export function useNearbyFood(options: NearbyFoodOptions = {}) {
     error.value = null
 
     const radiusMeters = selectedRadiusMeters.value
+    const minRating = selectedMinRating.value
     if (!isValidRadius(radiusMeters)) {
       error.value = invalidRadiusError()
       state.value = 'provider-error'
       return
     }
+
+    if (!isValidMinRating(minRating)) {
+      error.value = {
+        code: 'invalid_request',
+        message: '最低評分必須介於 0.5 與 5 星之間，以半星調整，或選擇不限評分。',
+      }
+      state.value = 'provider-error'
+      return
+    }
+
+    const conditions = { radiusMeters, minRating }
+    submittedConditions.value = conditions
 
     state.value = 'locating'
 
@@ -67,12 +96,12 @@ export function useNearbyFood(options: NearbyFoodOptions = {}) {
       return
     }
 
-    await search(radiusMeters)
+    await search(conditions)
   }
 
-  async function search(radiusMeters: number): Promise<void> {
+  async function search(conditions: SearchConditions): Promise<void> {
     const location = currentLocation.value
-    if (!location || !isValidRadius(radiusMeters)) {
+    if (!location) {
       error.value = invalidRadiusError()
       state.value = 'provider-error'
       return
@@ -82,7 +111,7 @@ export function useNearbyFood(options: NearbyFoodOptions = {}) {
     error.value = null
 
     try {
-      place.value = await pick({ ...location, radiusMeters })
+      place.value = await pick({ ...location, ...conditions })
       state.value = 'selected'
     } catch (caught) {
       handleApiError(caught)
@@ -129,7 +158,7 @@ export function useNearbyFood(options: NearbyFoodOptions = {}) {
 
     if (caught instanceof Error && caught.message === 'no_results') {
       state.value = 'no-results'
-      error.value = { code: 'no_results', message: '目前搜尋範圍內沒有找到適合的地點。' }
+      error.value = { code: 'no_results', message: '本次未找到符合搜尋條件的餐飲地點。' }
       return
     }
 
@@ -142,6 +171,8 @@ export function useNearbyFood(options: NearbyFoodOptions = {}) {
     place,
     error,
     selectedRadiusMeters,
+    selectedMinRating,
+    submittedConditions,
     isBusy,
     recommend,
   }

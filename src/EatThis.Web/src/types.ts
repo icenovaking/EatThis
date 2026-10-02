@@ -2,6 +2,7 @@ export interface SearchRequest {
   latitude: number
   longitude: number
   radiusMeters: number
+  minRating?: number | null
 }
 
 export interface PlaceResult {
@@ -12,6 +13,7 @@ export interface PlaceResult {
   distanceMeters: number
   navigationUrl: string
   provider: string
+  rating?: number | null
 }
 
 export interface ApiErrorPayload {

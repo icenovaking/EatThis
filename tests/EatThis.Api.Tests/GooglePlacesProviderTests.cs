@@ -13,6 +13,27 @@ namespace EatThis.Api.Tests;
 public sealed class GooglePlacesProviderTests
 {
     [TestMethod]
+    [DataRow("", null)]
+    [DataRow(",\"rating\":null", null)]
+    [DataRow(",\"rating\":0", null)]
+    [DataRow(",\"rating\":0.5", null)]
+    [DataRow(",\"rating\":5.1", null)]
+    [DataRow(",\"rating\":1e400", null)]
+    [DataRow(",\"rating\":1", 1.0)]
+    [DataRow(",\"rating\":4.3", 4.3)]
+    [DataRow(",\"rating\":5", 5.0)]
+    public async Task Google_rating_is_normalized_without_removing_usable_places(string ratingJson, double? expected)
+    {
+        var handler = new RecordingHandler("{\"places\":[{\"displayName\":{\"text\":\"Food\"},\"formattedAddress\":\"Taipei\",\"location\":{\"latitude\":25.033,\"longitude\":121.5654},\"googleMapsUri\":\"https://example.com/food\"" + ratingJson + "}]}");
+        using var client = new HttpClient(handler) { BaseAddress = GooglePlacesProvider.DefaultBaseAddress };
+        var provider = new GooglePlacesProvider(client, Options.Create(new GooglePlacesOptions { ApiKey = "fake-test-key" }), NullLogger<GooglePlacesProvider>.Instance);
+        var candidates = await provider.SearchAsync(new NearbySearchQuery(25.033, 121.5654, 700, 4.5), CancellationToken.None);
+        Assert.AreEqual(1, candidates.Count);
+        Assert.AreEqual(expected, candidates[0].Rating);
+        Assert.IsFalse(handler.RequestBody!.Contains("minRating", StringComparison.Ordinal));
+        Assert.IsFalse(handler.RequestBody.Contains("fake-test-key", StringComparison.Ordinal));
+    }
+    [TestMethod]
     public async Task Nearby_search_uses_fixed_request_shape_and_maps_google_fields()
     {
         var handler = new RecordingHandler(
@@ -56,11 +77,12 @@ public sealed class GooglePlacesProviderTests
             "fake-test-key",
             handler.Request.Headers.GetValues("X-Goog-Api-Key").Single());
         Assert.AreEqual(
-            "places.displayName,places.formattedAddress,places.location,places.googleMapsUri",
+            "places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating",
             handler.Request.Headers.GetValues("X-Goog-FieldMask").Single());
 
         using var requestJson = JsonDocument.Parse(handler.RequestBody!);
         var root = requestJson.RootElement;
+        Assert.IsFalse(root.TryGetProperty("minRating", out _));
         Assert.AreEqual("zh-TW", root.GetProperty("languageCode").GetString());
         Assert.AreEqual(20, root.GetProperty("maxResultCount").GetInt32());
         CollectionAssert.AreEquivalent(

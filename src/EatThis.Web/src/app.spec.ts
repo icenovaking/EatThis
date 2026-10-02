@@ -47,6 +47,86 @@ function successfulGeolocation() {
 }
 
 describe('EatThis shell', () => {
+  it('offers ten accessible half-star choices and an unrestricted default without side effects', async () => {
+    const geolocation = successfulGeolocation()
+    const pick = vi.fn()
+    const wrapper = mount(App, { props: { geolocation, pick } })
+    const choices = wrapper.findAll('input[name="minimum-rating"]')
+
+    expect(choices).toHaveLength(11)
+    expect((wrapper.get('#rating-unrestricted').element as HTMLInputElement).checked).toBe(true)
+    expect(wrapper.get('[data-rating-value]').text()).toBe('不限評分')
+    for (const [value, text] of [[0.5, '0.5'], [1, '1'], [1.5, '1.5'], [2, '2'], [2.5, '2.5'], [3, '3'], [3.5, '3.5'], [4, '4'], [4.5, '4.5'], [5, '5']] as const) {
+      const radio = wrapper.get(`input[name="minimum-rating"][value="${value}"]`)
+      expect(radio.attributes('aria-label')).toBe(`最低評分 ${text} 星以上`)
+      await radio.setValue(true)
+      expect((radio.element as HTMLInputElement).checked).toBe(true)
+      expect(wrapper.get('[data-rating-value]').text()).toBe(`${text} 星以上`)
+    }
+    await wrapper.get('#rating-unrestricted').setValue(true)
+    expect(wrapper.get('[data-rating-value]').text()).toBe('不限評分')
+    expect(geolocation.getCurrentPosition).not.toHaveBeenCalled()
+    expect(pick).not.toHaveBeenCalled()
+  })
+
+  it.each([3.5, 4, 4.5])('submits the selected half-star threshold %s', async (minRating) => {
+    const pick = vi.fn().mockResolvedValue(selectedPlace)
+    const wrapper = mount(App, { props: { geolocation: successfulGeolocation(), pick } })
+    await wrapper.get('input[type="range"]').setValue('700')
+    await wrapper.get(`input[name="minimum-rating"][value="${minRating}"]`).setValue(true)
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    await flushPromises()
+    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 700, minRating })
+  })
+
+  it.each([4.3, null, undefined])('shows actual result rating %s without threshold rounding', async (rating) => {
+    const wrapper = mount(App, { props: {
+      geolocation: successfulGeolocation(),
+      pick: vi.fn().mockResolvedValue({ ...selectedPlace, rating }),
+    } })
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-place-rating]').text()).toBe(rating == null ? '尚無評分' : '4.3')
+  })
+
+  it('describes submitted conditions after no results while preserving later pending controls', async () => {
+    let rejectPick!: (reason: unknown) => void
+    const pick = vi.fn(() => new Promise<PlaceResult>((_resolve, reject) => { rejectPick = reject }))
+    const geolocation = successfulGeolocation()
+    const wrapper = mount(App, { props: { geolocation, pick } })
+    await wrapper.get('input[type="range"]').setValue('700')
+    await wrapper.get('input[name="minimum-rating"][value="4.5"]').setValue(true)
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('input[type="range"]').setValue('1000')
+    await wrapper.get('input[name="minimum-rating"][value="3.5"]').setValue(true)
+    rejectPick(new ApiRequestError(404, 'no_results', '本次未找到合適的店家。'))
+    await flushPromises()
+    const recovery = wrapper.get('section[data-state="no-results"]')
+    expect(recovery.text()).toContain('700 公尺')
+    expect(recovery.text()).toContain('4.5 星以上')
+    expect(recovery.text()).toContain('降低最低評分')
+    expect(wrapper.get('[data-rating-value]').text()).toBe('3.5 星以上')
+    expect(wrapper.get('[data-radius-value]').text()).toBe('1 公里')
+    expect(pick).toHaveBeenCalledTimes(1)
+    expect(geolocation.getCurrentPosition).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers lowering the threshold at maximum radius without an expansion', async () => {
+    const wrapper = mount(App, { props: {
+      geolocation: successfulGeolocation(),
+      pick: vi.fn().mockRejectedValue(new ApiRequestError(404, 'no_results', '本次未找到合適的店家。')),
+    } })
+    await wrapper.get('input[type="range"]').setValue('3000')
+    await wrapper.get('input[name="minimum-rating"][value="4.5"]').setValue(true)
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    await flushPromises()
+    const recovery = wrapper.get('section[data-state="no-results"]')
+    expect(recovery.text()).toContain('3 公里')
+    expect(recovery.text()).toContain('降低最低評分')
+    expect(recovery.text()).not.toContain('把搜尋距離調大')
+  })
+
   it('offers the primary recommendation action', () => {
     const wrapper = mount(App)
 
