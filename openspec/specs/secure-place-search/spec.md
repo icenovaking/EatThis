@@ -183,7 +183,7 @@ tests:
 ---
 ### Requirement: Query Google Places through an adapter
 
-The initial provider adapter SHALL call Google Places Nearby Search with the validated center and radius, fixed food-related types, a server-controlled minimal field mask including places.rating, the existing server-controlled zh-TW language preference and the server-side API key. The adapter SHALL map Google results to the normalized candidate contract with nullable rating. Missing, null, non-finite or numeric ratings outside 1 through 5 SHALL normalize to null without excluding an otherwise usable place. The adapter SHALL retain the existing maximum of 20 returned candidates and SHALL NOT send minRating as a Google Nearby Search parameter.
+The initial provider adapter SHALL call Google Places Nearby Search with the validated center and radius, server-controlled food-related types selected by the validated restaurant category, a server-controlled minimal field mask including places.rating, the existing server-controlled zh-TW language preference and the server-side API key. The adapter SHALL map Google results to the normalized candidate contract with nullable rating. Missing, null, non-finite or numeric ratings outside 1 through 5 SHALL normalize to null without excluding an otherwise usable place. The adapter SHALL retain the existing maximum of 20 returned candidates and SHALL NOT send minRating as a Google Nearby Search parameter.
 
 #### Scenario: Google returns food places
 
@@ -205,41 +205,43 @@ The initial provider adapter SHALL call Google Places Nearby Search with the val
 - **WHEN** a valid minimum-rating search invokes Google
 - **THEN** the Google request contains the fixed field mask including places.rating, languageCode zh-TW and maxResultCount 20, and contains no minRating parameter or caller-supplied field mask
 
+#### Scenario: Category mapping precedes candidate selection
+
+- **WHEN** the adapter receives japanese, radiusMeters 1000 and minRating 4.0
+- **THEN** it makes one Nearby Search request using japanese_restaurant, sushi_restaurant and ramen_restaurant as includedTypes and radius 1000, keeps the fixed field mask including places.rating, zh-TW and maximum 20, and sends neither minRating nor a broad restaurant fallback
+
 
 <!-- @trace
-source: add-minimum-rating-filter
+source: add-restaurant-type-filter
 updated: 2026-10-02
 code:
-  - src/EatThis.Web/dist/assets/index-C7jsj6mC.js
-  - src/EatThis.Web/src/composables/useNearbyFood.ts
-  - tests/EatThis.Api.Tests/ContractFixtureTests.cs
-  - tests/EatThis.Api.Tests/RandomSelectionTests.cs
-  - src/EatThis.Web/src/App.vue
-  - src/EatThis.Web/src/styles.css
-  - tests/EatThis.Api.Tests/GooglePlacesProviderTests.cs
-  - docs/ui/eatthis-mobile-web-direction.md
   - src/EatThis.Api/Contracts/NearbyFoodContracts.cs
   - src/EatThis.Api/Infrastructure/GooglePlacesProvider.cs
-  - tests/EatThis.Api.Tests/ProviderNeutralContractTests.cs
-  - src/EatThis.Api/Application/PlaceCandidateRules.cs
-  - README.md
-  - src/EatThis.Web/dist/assets/index-CXt3g_nB.css
   - src/EatThis.Web/dist/index.html
-  - src/EatThis.Web/src/types.ts
-  - src/EatThis.Web/dist/assets/index-DXQgLy6m.js
-  - tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs
-  - tests/fixtures/nearby-food-success.json
-  - tests/EatThis.Api.Tests/CandidateNormalizationTests.cs
-  - src/EatThis.Web/dist/assets/index-D4IjCKov.css
-  - PRODUCT.md
-  - src/EatThis.Api/Application/NearbyFoodService.cs
-  - DESIGN.md
+  - tests/EatThis.Api.Tests/GooglePlacesProviderTests.cs
+  - src/EatThis.Web/dist/assets/index-CXt3g_nB.css
+  - src/EatThis.Api/Domain/RestaurantCategory.cs
+  - src/EatThis.Web/src/App.vue
+  - docs/ui/eatthis-mobile-web-direction.md
   - src/EatThis.Api/Domain/NearbySearchQuery.cs
-  - src/EatThis.Api/Program.cs
+  - src/EatThis.Web/dist/assets/index-CMq0UGrf.js
+  - PRODUCT.md
+  - .impeccable/design.json
+  - tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs
+  - tests/EatThis.Api.Tests/ProviderNeutralContractTests.cs
+  - DESIGN.md
+  - src/EatThis.Web/dist/assets/index-xJA_ogI9.css
+  - tests/EatThis.Api.Tests/ProxyRestrictionTests.cs
+  - src/EatThis.Web/src/types.ts
+  - src/EatThis.Web/dist/assets/index-C7jsj6mC.js
+  - src/EatThis.Web/src/restaurantCategories.ts
+  - src/EatThis.Web/src/styles.css
+  - src/EatThis.Web/src/composables/useNearbyFood.ts
+  - README.md
 tests:
-  - src/EatThis.Web/src/composables/useNearbyFood.spec.ts
   - src/EatThis.Web/src/app.spec.ts
   - src/EatThis.Web/src/api/nearbyFoodApi.spec.ts
+  - src/EatThis.Web/src/composables/useNearbyFood.spec.ts
 -->
 
 ---
@@ -477,7 +479,6 @@ tests:
 -->
 
 ---
-
 ### Requirement: Keep provider localization server-controlled
 
 The Google Places adapter SHALL send languageCode equal to zh-TW for every Nearby Search request. The public nearby-food endpoint SHALL NOT accept a provider-specific language option, and the adapter SHALL retain the closest available non-empty place name when Google has no zh-TW translation.
@@ -508,7 +509,6 @@ updated: 2026-10-02
 -->
 
 ---
-
 ### Requirement: Validate an optional half-star minimum rating
 
 The backend SHALL accept optional nullable minRating on the nearby-food pick request. Omission or null SHALL mean unrestricted rating. Numeric values SHALL be finite and one of 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5 or 5.0. Invalid values, types or malformed JSON SHALL return HTTP 400 with errorCode invalid_request without invoking the provider. The backend SHALL NOT round an invalid threshold into a valid one.
@@ -550,7 +550,6 @@ updated: 2026-10-02
 -->
 
 ---
-
 ### Requirement: Filter candidates before random selection
 
 NearbyFoodService SHALL apply existing usability validation, inclusive minimum-rating filtering, navigation-URL deduplication and then random selection in that order. With a non-null minimum rating, only candidates with a valid rating greater than or equal to the threshold SHALL qualify. With no minimum rating, missing rating SHALL NOT exclude an otherwise usable candidate. Valid normalized ratings SHALL be finite and between 1 and 5 inclusive; null SHALL represent unavailable rating. Out-of-range or non-finite normalized ratings from a provider SHALL fail candidate usability validation. Zero eligible candidates SHALL produce HTTP 404 no_results without random-source invocation, additional provider requests, or automatic condition relaxation.
@@ -578,4 +577,142 @@ NearbyFoodService SHALL apply existing usability validation, inclusive minimum-r
 <!-- @trace
 source: add-minimum-rating-filter
 updated: 2026-10-02
+-->
+
+---
+### Requirement: Validate an optional restaurant category
+
+The nearby-food endpoint SHALL accept optional nullable restaurantCategory as a provider-neutral string. Omission and null SHALL mean unrestricted category. The only valid non-null codes SHALL be taiwanese-chinese, japanese, korean, hot-pot, barbecue, italian, breakfast-brunch, fast-food, vegetarian and cafe-dessert. Membership SHALL use exact case-sensitive comparison without trimming. NearbySearchQuery SHALL carry a validated domain category rather than raw Google type strings. Invalid values or JSON types SHALL return HTTP 400 with errorCode invalid_request and an error message naming restaurant category without calling the provider. Existing location, radius and minimum-rating validation SHALL remain enforced. Successful response fields SHALL remain unchanged.
+
+#### Scenario: Backward-compatible unrestricted request
+
+- **WHEN** an otherwise valid request omits restaurantCategory or supplies null
+- **THEN** the validated query has unrestricted category and the provider uses the existing six food-related includedTypes
+
+#### Scenario: Valid category is passed to a provider
+
+- **WHEN** an otherwise valid request contains one of the ten allowed category codes
+- **THEN** validation succeeds and IPlaceProvider receives that category in the validated query independently of Google-specific strings
+
+#### Scenario: Reject invalid category before provider invocation
+
+- **WHEN** an otherwise valid request contains one of the following invalid inputs
+- **THEN** it returns HTTP 400 invalid_request and provider invocation count is zero
+
+##### Example: Invalid category inputs
+
+| restaurantCategory | Expected result |
+| --- | --- |
+| "" | HTTP 400 invalid_request |
+| "all" | HTTP 400 invalid_request |
+| "Japanese" | HTTP 400 invalid_request |
+| " japanese " | HTTP 400 invalid_request |
+| "restaurant" | HTTP 400 invalid_request |
+| "pizza_restaurant" | HTTP 400 invalid_request |
+| 123 | HTTP 400 invalid_request |
+| true | HTTP 400 invalid_request |
+| [] | HTTP 400 invalid_request |
+| {} | HTTP 400 invalid_request |
+
+
+<!-- @trace
+source: add-restaurant-type-filter
+updated: 2026-10-02
+code:
+  - src/EatThis.Api/Contracts/NearbyFoodContracts.cs
+  - src/EatThis.Api/Infrastructure/GooglePlacesProvider.cs
+  - src/EatThis.Web/dist/index.html
+  - tests/EatThis.Api.Tests/GooglePlacesProviderTests.cs
+  - src/EatThis.Web/dist/assets/index-CXt3g_nB.css
+  - src/EatThis.Api/Domain/RestaurantCategory.cs
+  - src/EatThis.Web/src/App.vue
+  - docs/ui/eatthis-mobile-web-direction.md
+  - src/EatThis.Api/Domain/NearbySearchQuery.cs
+  - src/EatThis.Web/dist/assets/index-CMq0UGrf.js
+  - PRODUCT.md
+  - .impeccable/design.json
+  - tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs
+  - tests/EatThis.Api.Tests/ProviderNeutralContractTests.cs
+  - DESIGN.md
+  - src/EatThis.Web/dist/assets/index-xJA_ogI9.css
+  - tests/EatThis.Api.Tests/ProxyRestrictionTests.cs
+  - src/EatThis.Web/src/types.ts
+  - src/EatThis.Web/dist/assets/index-C7jsj6mC.js
+  - src/EatThis.Web/src/restaurantCategories.ts
+  - src/EatThis.Web/src/styles.css
+  - src/EatThis.Web/src/composables/useNearbyFood.ts
+  - README.md
+tests:
+  - src/EatThis.Web/src/app.spec.ts
+  - src/EatThis.Web/src/api/nearbyFoodApi.spec.ts
+  - src/EatThis.Web/src/composables/useNearbyFood.spec.ts
+-->
+
+---
+### Requirement: Map product categories to one bounded provider search
+
+The Google adapter SHALL select includedTypes from the following complete server-controlled mapping. Multiple mapped types SHALL match any listed type within one Nearby Search request; a specific category SHALL replace the unrestricted list rather than append broad restaurant types. The adapter SHALL NOT accept caller-supplied Google includedTypes, includedPrimaryTypes, excludedTypes or field masks. It SHALL preserve languageCode zh-TW, maximum 20 results, the existing location restriction and the fixed field mask including places.rating. One accepted search SHALL invoke Google once without category fan-out, automatic fallback or a second classification search. IPlaceProvider implementations SHALL return normalized candidates satisfying the validated category. Existing minimum-rating filtering, URL deduplication, random selection and HTTP 404 no_results behavior SHALL continue without extra provider calls; the service SHALL NOT infer category from place names.
+
+#### Scenario: Apply the complete category mapping
+
+- **WHEN** the adapter searches with each of the category values below
+- **THEN** the request contains exactly the corresponding includedTypes and the same fixed language, field mask and result limit
+
+##### Example: Category mapping
+
+| restaurantCategory | includedTypes |
+| --- | --- |
+| omitted or null | restaurant, cafe, fast_food_restaurant, food_court, bakery, meal_takeaway |
+| taiwanese-chinese | taiwanese_restaurant, chinese_restaurant |
+| japanese | japanese_restaurant, sushi_restaurant, ramen_restaurant |
+| korean | korean_restaurant, korean_barbecue_restaurant |
+| hot-pot | hot_pot_restaurant |
+| barbecue | barbecue_restaurant, yakiniku_restaurant |
+| italian | italian_restaurant, pizza_restaurant |
+| breakfast-brunch | breakfast_restaurant, brunch_restaurant |
+| fast-food | fast_food_restaurant, hamburger_restaurant |
+| vegetarian | vegetarian_restaurant, vegan_restaurant |
+| cafe-dessert | cafe, coffee_shop, dessert_shop, dessert_restaurant |
+
+#### Scenario: Caller attempts to override provider filters
+
+- **WHEN** a public request includes japanese together with arbitrary includedTypes, includedPrimaryTypes, excludedTypes or fieldMask fields
+- **THEN** the adapter ignores the unsupported fields and uses only the server-controlled japanese mapping and fixed field mask
+
+#### Scenario: No candidate qualifies after category search
+
+- **WHEN** the single category-filtered provider search returns no usable rating-qualified candidate
+- **THEN** the endpoint returns HTTP 404 no_results without random selection or an additional provider request
+
+<!-- @trace
+source: add-restaurant-type-filter
+updated: 2026-10-02
+code:
+  - src/EatThis.Api/Contracts/NearbyFoodContracts.cs
+  - src/EatThis.Api/Infrastructure/GooglePlacesProvider.cs
+  - src/EatThis.Web/dist/index.html
+  - tests/EatThis.Api.Tests/GooglePlacesProviderTests.cs
+  - src/EatThis.Web/dist/assets/index-CXt3g_nB.css
+  - src/EatThis.Api/Domain/RestaurantCategory.cs
+  - src/EatThis.Web/src/App.vue
+  - docs/ui/eatthis-mobile-web-direction.md
+  - src/EatThis.Api/Domain/NearbySearchQuery.cs
+  - src/EatThis.Web/dist/assets/index-CMq0UGrf.js
+  - PRODUCT.md
+  - .impeccable/design.json
+  - tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs
+  - tests/EatThis.Api.Tests/ProviderNeutralContractTests.cs
+  - DESIGN.md
+  - src/EatThis.Web/dist/assets/index-xJA_ogI9.css
+  - tests/EatThis.Api.Tests/ProxyRestrictionTests.cs
+  - src/EatThis.Web/src/types.ts
+  - src/EatThis.Web/dist/assets/index-C7jsj6mC.js
+  - src/EatThis.Web/src/restaurantCategories.ts
+  - src/EatThis.Web/src/styles.css
+  - src/EatThis.Web/src/composables/useNearbyFood.ts
+  - README.md
+tests:
+  - src/EatThis.Web/src/app.spec.ts
+  - src/EatThis.Web/src/api/nearbyFoodApi.spec.ts
+  - src/EatThis.Web/src/composables/useNearbyFood.spec.ts
 -->

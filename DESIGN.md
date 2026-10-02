@@ -76,6 +76,12 @@ components:
     textColor: "{colors.deep-ink}"
     rounded: "{rounded.control}"
     height: "28px"
+  input-category:
+    backgroundColor: "{colors.white-surface}"
+    textColor: "{colors.deep-ink}"
+    rounded: "{rounded.control}"
+    padding: "8px 10px"
+    height: "44px"
   card-destination:
     backgroundColor: "{colors.white-surface}"
     textColor: "{colors.deep-ink}"
@@ -108,11 +114,11 @@ Rating stars add a functional yellow (#e9b528) for selection and rating gray (#c
 
 ### Half-star rating control
 
-Five authored SVG stars sit between distance and the primary action. Ten native radio inputs cover the left and right halves; a separate unrestricted radio resets the value to null. Each left half selects n−0.5, each right half selects n. Selected portions fill yellow without changing on hover; the numeric label identifies the minimum threshold, such as 4.5 星以上.
+Five authored SVG stars sit after restaurant category and before the primary action. Ten native radio inputs cover the left and right halves; a separate unrestricted radio resets the value to null. Each left half selects n−0.5, each right half selects n. Selected portions fill yellow without changing on hover; the numeric label identifies the minimum threshold, such as 4.5 星以上.
 
 The shared star-size token is clamp(48px, 8vw, 56px), making each half target at least 24px wide and 48px high. The five-star row stays together; labels and unrestricted selection wrap as needed. Focus uses the existing jade outline, and a fine hover outline identifies the selectable half without previewing another threshold. The group exposes native keyboard radio behavior and accessible names. No inline per-device geometry is used.
 
-The primary action names pending distance and rating. Operation messages and recovery name the submitted snapshot. The destination sheet includes one small yellow SVG star alongside the actual rating number or 尚無評分; this result is informational rather than editable.
+The primary action names pending distance, restaurant category and rating, including while busy. Operation messages and recovery name the submitted snapshot. The destination sheet includes one small yellow SVG star alongside the actual rating number or 尚無評分; this result is informational rather than editable.
 
 ### Primary
 
@@ -152,7 +158,7 @@ The supporting scale gives the wordmark, range control, compact notes, live radi
 
 ## Layout
 
-The page is a single vertical task surface capped at a readable 760px shell. The shell uses 24px horizontal breathing room on regular widths and 16px at the compact breakpoint; the first viewport keeps the headline, radius value, range, action, and live status in one sequence. Sections are separated by fine rules and deliberate vertical intervals rather than a grid of independent cards.
+The page is a single vertical task surface capped at a readable 760px shell. The shell uses 24px horizontal breathing room on regular widths and 16px at the compact breakpoint; the first viewport keeps the headline, radius value, range, restaurant category, rating, action, and live status in one sequence. Sections are separated by fine rules and deliberate vertical intervals rather than a grid of independent cards.
 
 The layout is mobile-first from 320px upward. At the compact breakpoint (480px and below), the shell tightens its gutters, the headline scales down, and the destination sheet reduces its inset padding. The destination sheet uses a two-column detail rhythm, but its value column always has a minimum width of zero so long names and addresses wrap safely.
 
@@ -187,6 +193,10 @@ The component language is restrained and tactile: one clear action, one quiet re
 - **Shadow Strategy:** No shadow; rules, whitespace, and tonal contrast provide separation.
 - **Border:** One-pixel rule-grey outline, with matching internal detail separators.
 - **Internal Padding:** 22px 20px on regular widths, reduced to 18px 14px at the compact breakpoint.
+
+### Restaurant Category
+
+Eleven native radio choices present one selected category: 不限類型 plus ten product categories. The group sits between distance and rating and wraps naturally at narrow widths. Text options use control corners, fine rule borders, deep ink and a jade border with an authored SVG checkmark when selected. Focus uses a visible jade outline. Each target is at least 44 CSS pixels high; selection never starts location or API work. Pending edits while busy affect the next action, while result and recovery text retains the submitted three-condition snapshot.
 
 ### Inputs / Fields
 

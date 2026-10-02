@@ -6,7 +6,8 @@ EatThis 是一個以手機瀏覽器為主的「今天吃什麼」附近餐飲推
 
 - 搜尋距離預設 100 公尺，可依 100 公尺級距調整至 3 公里；不自動擴大範圍。
 - 五顆星可選最低評分，點左半選半星、右半選整星，支援 0.5 至 5 星；預設「不限評分」。
-- 距離與評分調整不會搜尋，按下「幫我決定」才固定當次條件、定位並搜尋。搜尋途中調整只影響下一次操作。
+- 餐廳類型提供「不限類型」與 10 個常用分類，採可換行的單選文字選項；預設不限類型。
+- 距離、餐廳類型與評分調整不會搜尋，按下「幫我決定」才固定當次條件、定位並搜尋。搜尋途中調整只影響下一次操作。
 - 不持續追蹤位置、不嵌入地圖、不提供餐廳目錄瀏覽。
 - 顯示餐飲名稱、地址、距離、實際評分與外部導航連結；未評分店家顯示「尚無評分」。
 - 處理定位拒絕、瀏覽器不支援定位、查無結果、服務錯誤與頻率限制等狀態。
@@ -86,13 +87,30 @@ npm run dev
   "latitude": 25.033,
   "longitude": 121.5654,
   "radiusMeters": 700,
-  "minRating": 4.0
+  "minRating": 4.0,
+  "restaurantCategory": "japanese"
 }
 ```
 
 `latitude` 必須介於 `-90` 與 `90`，`longitude` 必須介於 `-180` 與 `180`，`radiusMeters` 必須介於 `100` 與 `3000`；API 省略半徑時仍預設為 `3000`，前端初始選擇則為 `100`。
 
 `minRating` 可省略或為 `null`（不限評分），或為 0.5 至 5 的半星數字。字串、布林、4.3 等非半星門檻及超界值回 `400 invalid_request`，不呼叫供應商。門檻採包含邊界的比較：選 4 星時，評分 4.0、4.3、4.8 都符合；沒有評分的店家只在不限評分時參與。
+
+`restaurantCategory` 可省略或為 `null`（不限類型）；具體分類只接受下表代碼，區分大小寫且不修剪空白。空字串、未知代碼、Google 類型字串及非字串值回 `400 invalid_request`，不呼叫供應商。各分類在同一次 Google 搜尋中匹配其中任一 listed type，具體分類不混入泛用 `restaurant`。
+
+| 代碼 | 顯示名稱 | Google includedTypes |
+| --- | --- | --- |
+| null | 不限類型 | restaurant, cafe, fast_food_restaurant, food_court, bakery, meal_takeaway |
+| taiwanese-chinese | 台式／中式 | taiwanese_restaurant, chinese_restaurant |
+| japanese | 日式 | japanese_restaurant, sushi_restaurant, ramen_restaurant |
+| korean | 韓式 | korean_restaurant, korean_barbecue_restaurant |
+| hot-pot | 火鍋 | hot_pot_restaurant |
+| barbecue | 燒烤 | barbecue_restaurant, yakiniku_restaurant |
+| italian | 義式 | italian_restaurant, pizza_restaurant |
+| breakfast-brunch | 早餐／早午餐 | breakfast_restaurant, brunch_restaurant |
+| fast-food | 速食 | fast_food_restaurant, hamburger_restaurant |
+| vegetarian | 素食 | vegetarian_restaurant, vegan_restaurant |
+| cafe-dessert | 咖啡／甜點 | cafe, coffee_shop, dessert_shop, dessert_restaurant |
 
 成功回應會返回一個標準化地點：
 
@@ -111,17 +129,17 @@ npm run dev
 
 常見錯誤：`400 invalid_request`、`404 no_results`、`429 rate_limited`、`502/503 provider_unavailable`。API 每個來源 IP 每分鐘最多允許 30 次推薦請求。
 
-`rating` 保留店家實際分數，不依半星門檻四捨五入；未評分回 `null`。後端先驗證候選、按最低評分篩選，再依導航 URL 去重，最後隨機挑一間。無結果時畫面顯示當次提交條件，讓使用者自行降低評分或增加距離再搜尋，不會自動放寬條件。
+`rating` 保留店家實際分數，不依半星門檻四捨五入；未評分回 `null`。後端先驗證候選、按最低評分篩選，再依導航 URL 去重，最後隨機挑一間。無結果時畫面顯示當次提交條件，讓使用者自行改選餐廳類型／不限類型、降低評分或增加距離再搜尋，不會自動放寬條件。
 
 ### 候選範圍與 API 計費
 
-每次搜尋只對 Google Nearby Search 回傳的最多 20 間候選店家篩選，不是範圍內所有店家的完整清單。因此無結果表示本次未找到符合條件的候選，不能推論附近沒有合格店家。
+Google 先按所選類型篩選候選，店家分類涵蓋不完整且不保證各子類型等機率。每次搜尋只對 Google Nearby Search 回傳的最多 20 間候選店家篩選，不是範圍內所有店家的完整清單。因此無結果表示本次未找到符合條件的候選，不能推論附近沒有合格店家。
 
 後端固定要求 `places.rating` 以顯示及篩選評分，包含「不限評分」的請求；此欄位使用 Nearby Search Enterprise 計費級別。詳見 [Google Nearby Search 欄位與計費文件](https://developers.google.com/maps/documentation/places/web-service/nearby-search)。一次使用者動作仍只有一次供應商搜尋，不另外取得評論數或評論內容。
 
 ### 升級與回滾
 
-先部署接受 `minRating` 並回傳 `rating` 的後端，再部署含星星控制的前端；既有不傳 `minRating` 的用戶端保持不限評分。回滾時先回滾前端，再回滾後端，避免新前端連到不支援篩選的舊後端。沒有資料庫或偏好儲存遷移。
+先部署接受 `restaurantCategory` 並依分類搜尋的後端，再部署餐廳類型控制前端；既有不傳 `restaurantCategory` 的用戶端保持不限類型，成功 response 不變。回滾時先回滾前端，再回滾後端，避免新前端連到不支援篩選的舊後端。沒有資料庫或偏好儲存遷移。
 
 ## 測試與檢查
 

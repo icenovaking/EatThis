@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { RESTAURANT_CATEGORY_OPTIONS, formatRestaurantCategory } from './restaurantCategories'
 import googleMapsLogo from './assets/google-maps-logo.svg'
 import {
   MAXIMUM_RADIUS_METERS,
@@ -19,13 +20,14 @@ const {
   error,
   selectedRadiusMeters,
   selectedMinRating,
+  selectedRestaurantCategory,
   submittedConditions,
   isBusy,
   recommend,
 } = useNearbyFood(props)
 
 const stateCopy: Record<NearbyFoodState, string> = {
-  idle: '準備好了。選好距離與最低評分後，讓 EatThis 幫你挑一間。',
+  idle: '準備好了。選好距離、餐廳類型與最低評分後，讓 EatThis 幫你挑一間。',
   locating: '正在取得目前位置，請在瀏覽器提示中允許定位。',
   searching: '正在附近搜尋餐飲地點，請稍等。',
   selected: '已為你選出一間，接著可以開啟地圖。',
@@ -37,6 +39,8 @@ const stateCopy: Record<NearbyFoodState, string> = {
 }
 
 const radiusLabel = computed(() => formatRadius(selectedRadiusMeters.value))
+const categoryLabel = computed(() => formatRestaurantCategory(selectedRestaurantCategory.value))
+const searchedCategoryLabel = computed(() => formatRestaurantCategory(submittedConditions.value?.restaurantCategory ?? null))
 const ratingLabel = computed(() => formatRating(selectedMinRating.value))
 const searchedRadiusLabel = computed(() => formatRadius(submittedConditions.value?.radiusMeters ?? selectedRadiusMeters.value))
 const searchedRatingLabel = computed(() => formatRating(submittedConditions.value?.minRating ?? null))
@@ -48,9 +52,9 @@ const stars = Array.from({ length: MAXIMUM_RATING }, (_, index) => ({
 const starPath = 'M12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26Z'
 const isGooglePlace = computed(() => place.value?.provider.toLowerCase() === 'google')
 const stateText = computed(() => state.value === 'no-results'
-  ? `本次在 ${searchedRadiusLabel.value} 內未找到符合「${searchedRatingLabel.value}」的店家。`
+  ? `本次在 ${searchedRadiusLabel.value} 內未找到符合「${searchedCategoryLabel.value} · ${searchedRatingLabel.value}」的店家。`
   : state.value === 'selected'
-    ? `已依 ${searchedRadiusLabel.value}、${searchedRatingLabel.value} 為你選出一間。`
+    ? `已依 ${searchedRadiusLabel.value}、${searchedCategoryLabel.value}、${searchedRatingLabel.value} 為你選出一間。`
     : stateCopy[state.value])
 
 function formatRating(minRating: number | null): string {
@@ -124,6 +128,18 @@ function formatRadius(radiusMeters: number): string {
         </div>
       </div>
 
+      <fieldset class="category-control" data-control="restaurant-category" aria-describedby="category-help">
+        <legend>餐廳類型</legend>
+        <p id="category-help">選一種想吃的類型，或交給我們決定</p>
+        <div class="category-options">
+          <label v-for="option in RESTAURANT_CATEGORY_OPTIONS" :key="option.value ?? 'unrestricted'" class="category-option">
+            <input type="radio" name="restaurant-category" :value="option.value" v-model="selectedRestaurantCategory" :aria-label="option.label">
+            <svg class="category-check" viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8 3 3 7-7" /></svg>
+            <span>{{ option.label }}</span>
+          </label>
+        </div>
+      </fieldset>
+
       <fieldset class="rating-control" aria-describedby="rating-help">
         <legend>最低評分</legend>
         <div class="rating-heading">
@@ -160,7 +176,7 @@ function formatRadius(radiusMeters: number): string {
           @click="recommend"
         >
           <span>{{ isBusy ? '正在搜尋' : state === 'no-results' ? '再找一次' : '幫我決定' }}</span>
-          <span class="action-detail">{{ isBusy ? '請稍候' : `目前範圍 · ${radiusLabel} · ${ratingLabel}` }}</span>
+          <span class="action-detail">{{ `目前條件 · ${radiusLabel} · ${categoryLabel} · ${ratingLabel}` }}</span>
         </button>
         <p class="action-note">按下後才會使用目前位置；結果會交給 Google Maps 開啟路線。</p>
       </div>
@@ -179,8 +195,9 @@ function formatRadius(radiusMeters: number): string {
       </div>
 
       <section v-if="state === 'no-results'" class="recovery-panel" data-state="no-results">
-        <p class="recovery-radius">本次條件：<strong>{{ searchedRadiusLabel }} · {{ searchedRatingLabel }}</strong></p>
+        <p class="recovery-radius">本次條件：<strong>{{ searchedRadiusLabel }} · {{ searchedCategoryLabel }} · {{ searchedRatingLabel }}</strong></p>
         <h2>本次還沒找到合適的店。</h2>
+        <p v-if="submittedConditions?.restaurantCategory != null">可以改選其他餐廳類型，或選擇「不限類型」，再搜尋一次。</p>
         <p v-if="submittedConditions?.minRating != null">可以降低最低評分，或選擇「不限評分」，再搜尋一次。</p>
         <p v-if="searchedRadius < MAXIMUM_RADIUS_METERS">
           把搜尋距離調大，再按上方「再找一次」重新搜尋。

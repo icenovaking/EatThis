@@ -76,7 +76,7 @@ describe('EatThis shell', () => {
     await wrapper.get(`input[name="minimum-rating"][value="${minRating}"]`).setValue(true)
     await wrapper.get('[data-action="recommend"]').trigger('click')
     await flushPromises()
-    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 700, minRating })
+    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 700, minRating, restaurantCategory: null })
   })
 
   it.each([4.3, null, undefined])('shows actual result rating %s without threshold rounding', async (rating) => {
@@ -318,5 +318,79 @@ describe('EatThis shell', () => {
     await search
     await flushPromises()
     expect(wrapper.get('[data-state="selected"] h2').text()).toBe('Example Food Shop')
+  })
+})
+
+describe('restaurant category surface', () => {
+  it('offers eleven labeled native radios with one default and no selection side effects', async () => {
+    const geolocation = successfulGeolocation()
+    const pick = vi.fn()
+    const wrapper = mount(App, { props: { geolocation, pick } })
+    const group = wrapper.get('fieldset[data-control="restaurant-category"]')
+    expect(group.get('legend').text()).toBe('餐廳類型')
+    const labels = ['不限類型', '台式／中式', '日式', '韓式', '火鍋', '燒烤', '義式', '早餐／早午餐', '速食', '素食', '咖啡／甜點']
+    const radios = group.findAll('input[type="radio"][name="restaurant-category"]')
+    expect(radios.map(radio => radio.attributes('aria-label'))).toEqual(labels)
+    expect(radios.filter(radio => (radio.element as HTMLInputElement).checked)).toHaveLength(1)
+    expect((radios[0]!.element as HTMLInputElement).checked).toBe(true)
+    for (const radio of radios) {
+      await radio.setValue(true)
+      expect((radio.element as HTMLInputElement).checked).toBe(true)
+      expect(radios.filter(choice => (choice.element as HTMLInputElement).checked)).toHaveLength(1)
+      expect(wrapper.get('[data-action="recommend"]').text()).toContain(radio.attributes('aria-label'))
+    }
+    await radios[0]!.setValue(true)
+    expect(wrapper.get('[data-action="recommend"]').text()).toContain('不限類型')
+    expect(geolocation.getCurrentPosition).not.toHaveBeenCalled()
+    expect(pick).not.toHaveBeenCalled()
+  })
+
+  it.each(['selected', 'no-results'] as const)('keeps submitted category in %s while pending edits wait for next action', async (outcome) => {
+    let resolvePick!: (place: PlaceResult) => void
+    let rejectPick!: (reason: unknown) => void
+    const pick = vi.fn(() => new Promise<PlaceResult>((resolve, reject) => { resolvePick = resolve; rejectPick = reject }))
+    const geolocation = successfulGeolocation()
+    const wrapper = mount(App, { props: { geolocation, pick } })
+    await wrapper.get('input[name="restaurant-category"][value="japanese"]').setValue(true)
+    await wrapper.get('input[type="range"]').setValue('1000')
+    await wrapper.get('input[name="minimum-rating"][value="4"]').setValue(true)
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('input[name="restaurant-category"][value="hot-pot"]').setValue(true)
+    expect(wrapper.get('[data-action="recommend"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-action="recommend"]').text()).toContain('火鍋')
+    if (outcome === 'selected') resolvePick(selectedPlace)
+    else rejectPick(new ApiRequestError(404, 'no_results', '本次未找到合適的店家。'))
+    await flushPromises()
+    const status = wrapper.get('[aria-live="polite"]')
+    expect(status.text()).toContain('日式')
+    expect(status.text()).toContain('1 公里')
+    expect(status.text()).toContain('4 星以上')
+    expect(status.text()).not.toContain('火鍋')
+    expect((wrapper.get('input[name="restaurant-category"][value="hot-pot"]').element as HTMLInputElement).checked).toBe(true)
+    if (outcome === 'no-results') {
+      const recovery = wrapper.get('section[data-state="no-results"]')
+      expect(recovery.text()).toContain('日式')
+      expect(recovery.text()).toContain('不限類型')
+      expect(recovery.text()).toContain('降低最低評分')
+      expect(recovery.text()).toContain('把搜尋距離調大')
+    } else expect(wrapper.findAll('article[data-state="selected"]')).toHaveLength(1)
+    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 1000, minRating: 4, restaurantCategory: 'japanese' })
+    expect(geolocation.getCurrentPosition).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers an explicit retry at maximum radius and unrestricted category without automatic search', async () => {
+    const pick = vi.fn().mockRejectedValue(new ApiRequestError(404, 'no_results', '本次未找到合適的店家。'))
+    const wrapper = mount(App, { props: { geolocation: successfulGeolocation(), pick } })
+    await wrapper.get('input[type="range"]').setValue('3000')
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    await flushPromises()
+    const recovery = wrapper.get('section[data-state="no-results"]')
+    expect(recovery.text()).toContain('不限類型')
+    expect(recovery.text()).toContain('不限評分')
+    expect(recovery.text()).toContain('再找一次')
+    expect(recovery.text()).not.toContain('改選其他餐廳類型')
+    expect(recovery.text()).not.toContain('把搜尋距離調大')
+    expect(pick).toHaveBeenCalledTimes(1)
   })
 })

@@ -10,6 +10,62 @@ namespace EatThis.Api.Tests;
 public sealed class NearbyFoodEndpointTests
 {
     [TestMethod]
+    [DataRow("", null)]
+    [DataRow(",\"restaurantCategory\":null", null)]
+    [DataRow(",\"restaurantCategory\":\"taiwanese-chinese\"", EatThis.Api.Domain.RestaurantCategory.TaiwaneseChinese)]
+    [DataRow(",\"restaurantCategory\":\"japanese\"", EatThis.Api.Domain.RestaurantCategory.Japanese)]
+    [DataRow(",\"restaurantCategory\":\"korean\"", EatThis.Api.Domain.RestaurantCategory.Korean)]
+    [DataRow(",\"restaurantCategory\":\"hot-pot\"", EatThis.Api.Domain.RestaurantCategory.HotPot)]
+    [DataRow(",\"restaurantCategory\":\"barbecue\"", EatThis.Api.Domain.RestaurantCategory.Barbecue)]
+    [DataRow(",\"restaurantCategory\":\"italian\"", EatThis.Api.Domain.RestaurantCategory.Italian)]
+    [DataRow(",\"restaurantCategory\":\"breakfast-brunch\"", EatThis.Api.Domain.RestaurantCategory.BreakfastBrunch)]
+    [DataRow(",\"restaurantCategory\":\"fast-food\"", EatThis.Api.Domain.RestaurantCategory.FastFood)]
+    [DataRow(",\"restaurantCategory\":\"vegetarian\"", EatThis.Api.Domain.RestaurantCategory.Vegetarian)]
+    [DataRow(",\"restaurantCategory\":\"cafe-dessert\"", EatThis.Api.Domain.RestaurantCategory.CafeDessert)]
+    public async Task Valid_category_reaches_provider_and_preserves_response_shape(string categoryJson, EatThis.Api.Domain.RestaurantCategory? expected)
+    {
+        await using var factory = new EatThisApiFactory();
+        using var client = factory.CreateClient();
+        using var body = new StringContent(
+            "{\"latitude\":25.033,\"longitude\":121.5654,\"radiusMeters\":1000" + categoryJson + "}",
+            System.Text.Encoding.UTF8, "application/json");
+        using var response = await client.PostAsync("/api/nearby-food/pick", body);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual(1, factory.ProviderCalls);
+        Assert.AreEqual(expected, factory.LastQuery?.RestaurantCategory);
+        using var json = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        CollectionAssert.AreEquivalent(
+            new[] { "name", "address", "latitude", "longitude", "distanceMeters", "navigationUrl", "provider", "rating" },
+            json.RootElement.EnumerateObject().Select(property => property.Name).ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("\"\"")]
+    [DataRow("\"all\"")]
+    [DataRow("\"Japanese\"")]
+    [DataRow("\" japanese \"")]
+    [DataRow("\"restaurant\"")]
+    [DataRow("\"pizza_restaurant\"")]
+    [DataRow("123")]
+    [DataRow("true")]
+    [DataRow("[]")]
+    [DataRow("{}")]
+    public async Task Invalid_category_returns_stable_error_without_provider_call(string categoryJson)
+    {
+        await using var factory = new EatThisApiFactory();
+        using var client = factory.CreateClient();
+        using var body = new StringContent(
+            "{\"latitude\":25.033,\"longitude\":121.5654,\"radiusMeters\":1000,\"restaurantCategory\":" + categoryJson + "}",
+            System.Text.Encoding.UTF8, "application/json");
+        using var response = await client.PostAsync("/api/nearby-food/pick", body);
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        Assert.AreEqual("invalid_request", error?.ErrorCode);
+        Assert.IsTrue(error?.Message.Contains("餐廳類型", StringComparison.Ordinal));
+        Assert.AreEqual(0, factory.ProviderCalls);
+    }
+
+    [TestMethod]
     [DataRow(double.NaN)]
     [DataRow(double.PositiveInfinity)]
     [DataRow(double.NegativeInfinity)]

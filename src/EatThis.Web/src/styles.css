@@ -274,6 +274,90 @@ input[type="range"]:active::-moz-range-thumb {
   padding: 24px 0 28px;
 }
 
+.category-control {
+  min-width: 0;
+  margin: 24px 0 0;
+  padding: 0 0 18px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.category-control legend {
+  padding: 0;
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+#category-help {
+  margin: 6px 0 12px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.category-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.category-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.category-option input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.category-check {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  visibility: hidden;
+}
+
+.category-option:has(input:checked) {
+  border-color: var(--green);
+  color: var(--green-dark);
+  background: var(--surface);
+}
+
+.category-option:has(input:checked) .category-check {
+  visibility: visible;
+}
+
+.category-option:hover {
+  border-color: var(--muted);
+}
+
+.category-option:has(input:focus-visible) {
+  outline: 3px solid var(--green);
+  outline-offset: 2px;
+}
+
 .rating-control {
   min-width: 0;
   margin: 24px 0 0;
@@ -423,6 +507,7 @@ input[type="range"]:active::-moz-range-thumb {
 
 .primary-action {
   min-width: min(100%, 280px);
+  max-width: 100%;
   cursor: pointer;
   font-weight: 800;
 }
@@ -443,6 +528,7 @@ input[type="range"]:active::-moz-range-thumb {
 
 .action-detail,
 .link-detail {
+  overflow-wrap: anywhere;
   margin-top: 5px;
   font-size: 0.76rem;
   font-weight: 500;

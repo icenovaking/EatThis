@@ -65,3 +65,13 @@ describe('pickNearbyFood', () => {
     })
   })
 })
+
+// The existing JSON serializer already supports additive request fields.
+describe('category request serialization', () => {
+  it.each(['japanese', null] as const)('serializes restaurantCategory %s with rating and radius', async (restaurantCategory) => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => result } as Response)
+    await pickNearbyFood({ latitude: 25.033, longitude: 121.5654, radiusMeters: 1000, minRating: 4, restaurantCategory }, fetcher)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(fetcher.mock.calls[0]![1].body)).toEqual({ latitude: 25.033, longitude: 121.5654, radiusMeters: 1000, minRating: 4, restaurantCategory })
+  })
+})

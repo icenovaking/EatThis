@@ -6,7 +6,8 @@ public readonly record struct NearbySearchQuery(
     double Latitude,
     double Longitude,
     int RadiusMeters,
-    double? MinRating = null)
+    double? MinRating = null,
+    RestaurantCategory? RestaurantCategory = null)
 {
     public const int DefaultRadiusMeters = 3000;
     public const int MinimumRadiusMeters = 100;
@@ -36,7 +37,12 @@ public readonly record struct NearbySearchQuery(
             return false;
         }
 
-        query = new NearbySearchQuery(request.Latitude, request.Longitude, radiusMeters, request.MinRating);
+        if (!RestaurantCategoryParser.TryParse(request.RestaurantCategory, out var category))
+        {
+            return false;
+        }
+
+        query = new NearbySearchQuery(request.Latitude, request.Longitude, radiusMeters, request.MinRating, category);
         return true;
     }
 }

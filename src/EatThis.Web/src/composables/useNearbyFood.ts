@@ -1,4 +1,5 @@
 import { computed, ref } from 'vue'
+import { isValidRestaurantCategory, type RestaurantCategory } from '../restaurantCategories'
 import { ApiRequestError, pickNearbyFood as defaultPickNearbyFood } from '../api/nearbyFoodApi'
 import { LocationError, requestCurrentLocation, type GeolocationPort } from '../geolocation'
 import type { NearbyFoodState, PlaceResult, SearchRequest } from '../types'
@@ -27,6 +28,7 @@ export const RATING_STEP = 0.5
 export interface SearchConditions {
   radiusMeters: number
   minRating: number | null
+  restaurantCategory: RestaurantCategory | null
 }
 
 function isValidMinRating(value: number | null): boolean {
@@ -54,6 +56,7 @@ export function useNearbyFood(options: NearbyFoodOptions = {}) {
   const error = ref<FlowError | null>(null)
   const selectedRadiusMeters = ref(MINIMUM_RADIUS_METERS)
   const selectedMinRating = ref<number | null>(null)
+  const selectedRestaurantCategory = ref<RestaurantCategory | null>(null)
   const submittedConditions = ref<SearchConditions | null>(null)
   const currentLocation = ref<{ latitude: number; longitude: number } | null>(null)
   const isBusy = computed(() => state.value === 'locating' || state.value === 'searching')
@@ -69,6 +72,7 @@ export function useNearbyFood(options: NearbyFoodOptions = {}) {
 
     const radiusMeters = selectedRadiusMeters.value
     const minRating = selectedMinRating.value
+    const restaurantCategory = selectedRestaurantCategory.value
     if (!isValidRadius(radiusMeters)) {
       error.value = invalidRadiusError()
       state.value = 'provider-error'
@@ -84,7 +88,13 @@ export function useNearbyFood(options: NearbyFoodOptions = {}) {
       return
     }
 
-    const conditions = { radiusMeters, minRating }
+    if (!isValidRestaurantCategory(restaurantCategory)) {
+      error.value = { code: 'invalid_request', message: '請選擇有效的餐廳類型，或選擇不限類型。' }
+      state.value = 'provider-error'
+      return
+    }
+
+    const conditions = { radiusMeters, minRating, restaurantCategory }
     submittedConditions.value = conditions
 
     state.value = 'locating'
@@ -172,6 +182,7 @@ export function useNearbyFood(options: NearbyFoodOptions = {}) {
     error,
     selectedRadiusMeters,
     selectedMinRating,
+    selectedRestaurantCategory,
     submittedConditions,
     isBusy,
     recommend,

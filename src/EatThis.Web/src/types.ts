@@ -1,8 +1,11 @@
+import type { RestaurantCategory } from './restaurantCategories'
+
 export interface SearchRequest {
   latitude: number
   longitude: number
   radiusMeters: number
   minRating?: number | null
+  restaurantCategory?: RestaurantCategory | null
 }
 
 export interface PlaceResult {

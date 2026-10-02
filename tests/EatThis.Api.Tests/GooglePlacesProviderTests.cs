@@ -13,6 +13,44 @@ namespace EatThis.Api.Tests;
 public sealed class GooglePlacesProviderTests
 {
     [TestMethod]
+    [DataRow(null, "restaurant,cafe,fast_food_restaurant,food_court,bakery,meal_takeaway")]
+    [DataRow("taiwanese-chinese", "taiwanese_restaurant,chinese_restaurant")]
+    [DataRow("japanese", "japanese_restaurant,sushi_restaurant,ramen_restaurant")]
+    [DataRow("korean", "korean_restaurant,korean_barbecue_restaurant")]
+    [DataRow("hot-pot", "hot_pot_restaurant")]
+    [DataRow("barbecue", "barbecue_restaurant,yakiniku_restaurant")]
+    [DataRow("italian", "italian_restaurant,pizza_restaurant")]
+    [DataRow("breakfast-brunch", "breakfast_restaurant,brunch_restaurant")]
+    [DataRow("fast-food", "fast_food_restaurant,hamburger_restaurant")]
+    [DataRow("vegetarian", "vegetarian_restaurant,vegan_restaurant")]
+    [DataRow("cafe-dessert", "cafe,coffee_shop,dessert_shop,dessert_restaurant")]
+    public async Task Category_mapping_uses_one_bounded_google_request(string? category, string expectedTypes)
+    {
+        var request = JsonSerializer.Deserialize<EatThis.Api.Contracts.NearbyFoodRequest>(
+            JsonSerializer.Serialize(new { latitude = 25.033, longitude = 121.5654, radiusMeters = 1000, minRating = 4, restaurantCategory = category }),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.IsTrue(NearbySearchQuery.TryCreate(request, out var query));
+        var handler = new RecordingHandler("{\"places\":[]}");
+        using var client = new HttpClient(handler) { BaseAddress = GooglePlacesProvider.DefaultBaseAddress };
+        var provider = new GooglePlacesProvider(client, Options.Create(new GooglePlacesOptions { ApiKey = "fake-test-key" }), NullLogger<GooglePlacesProvider>.Instance);
+        var candidates = await provider.SearchAsync(query, CancellationToken.None);
+        Assert.AreEqual(0, candidates.Count);
+        Assert.AreEqual(1, handler.CallCount);
+        using var json = JsonDocument.Parse(handler.RequestBody!);
+        var root = json.RootElement;
+        CollectionAssert.AreEqual(expectedTypes.Split(','), root.GetProperty("includedTypes").EnumerateArray().Select(value => value.GetString()).ToArray());
+        Assert.AreEqual("zh-TW", root.GetProperty("languageCode").GetString());
+        Assert.AreEqual(20, root.GetProperty("maxResultCount").GetInt32());
+        var circle = root.GetProperty("locationRestriction").GetProperty("circle");
+        Assert.AreEqual(1000d, circle.GetProperty("radius").GetDouble());
+        Assert.AreEqual(25.033, circle.GetProperty("center").GetProperty("latitude").GetDouble());
+        Assert.AreEqual(121.5654, circle.GetProperty("center").GetProperty("longitude").GetDouble());
+        Assert.AreEqual("places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating", handler.Request!.Headers.GetValues("X-Goog-FieldMask").Single());
+        foreach (var property in new[] { "minRating", "includedPrimaryTypes", "excludedTypes", "fieldMask" })
+            Assert.IsFalse(root.TryGetProperty(property, out _));
+    }
+
+    [TestMethod]
     [DataRow("", null)]
     [DataRow(",\"rating\":null", null)]
     [DataRow(",\"rating\":0", null)]
@@ -217,6 +255,8 @@ public sealed class GooglePlacesProviderTests
         string responseBody,
         HttpStatusCode statusCode = HttpStatusCode.OK) : HttpMessageHandler
     {
+        public int CallCount { get; private set; }
+
         public HttpRequestMessage? Request { get; private set; }
 
         public string? RequestBody { get; private set; }
@@ -225,6 +265,7 @@ public sealed class GooglePlacesProviderTests
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
+            CallCount++;
             Request = request;
             RequestBody = request.Content is null
                 ? null

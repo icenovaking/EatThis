@@ -9,6 +9,43 @@ namespace EatThis.Api.Tests;
 public sealed class ProviderNeutralContractTests
 {
     [TestMethod]
+    public async Task Alternative_provider_receives_validated_category_and_exact_rating_combination()
+    {
+        var provider = new CategoryProvider([new("日式店", "Taipei", 25.033, 121.5654, 10, "https://example.com/japanese", "alternative", 4.3)]);
+        var service = new NearbyFoodService(provider, new FirstCandidateRandomSource());
+        var result = await service.PickAsync(new NearbyFoodRequest(25.033, 121.5654, 1000, 4, "japanese"), CancellationToken.None);
+        Assert.IsInstanceOfType<PickResult.Success>(result);
+        var success = (PickResult.Success)result;
+        Assert.AreEqual(4.3, success.Place.Rating);
+        Assert.AreEqual("alternative", success.Place.Provider);
+        Assert.AreEqual(1, provider.CallCount);
+        Assert.AreEqual(new NearbySearchQuery(25.033, 121.5654, 1000, 4, RestaurantCategory.Japanese), provider.LastQuery);
+    }
+
+    [TestMethod]
+    public async Task Category_search_without_qualified_candidate_does_not_fallback_or_draw()
+    {
+        var provider = new CategoryProvider([new("日式店", "Taipei", 25.033, 121.5654, 10, "https://example.com/japanese", "alternative", 3.9)]);
+        var service = new NearbyFoodService(provider, new UnexpectedRandomSource());
+        var result = await service.PickAsync(new NearbyFoodRequest(25.033, 121.5654, 1000, 4, "japanese"), CancellationToken.None);
+        Assert.IsInstanceOfType<PickResult.NoResults>(result);
+        Assert.AreEqual(1, provider.CallCount);
+        Assert.AreEqual(RestaurantCategory.Japanese, provider.LastQuery.RestaurantCategory);
+    }
+
+    private sealed class CategoryProvider(IReadOnlyList<PlaceCandidate> candidates) : IPlaceProvider
+    {
+        public int CallCount { get; private set; }
+        public NearbySearchQuery LastQuery { get; private set; }
+        public Task<IReadOnlyList<PlaceCandidate>> SearchAsync(NearbySearchQuery query, CancellationToken cancellationToken)
+        {
+            CallCount++;
+            LastQuery = query;
+            return Task.FromResult(candidates);
+        }
+    }
+
+    [TestMethod]
     public async Task Alternative_provider_missing_rating_is_excluded_by_threshold()
     {
         var service = new NearbyFoodService(new OSMLikeProvider(), new UnexpectedRandomSource());

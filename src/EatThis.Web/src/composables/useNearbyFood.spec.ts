@@ -53,7 +53,7 @@ describe('useNearbyFood', () => {
     expect(pick).not.toHaveBeenCalled()
     expect(geolocation?.getCurrentPosition).not.toHaveBeenCalled()
     await flow.recommend()
-    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 100, minRating: null })
+    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 100, minRating: null, restaurantCategory: null })
   })
 
   it('snapshots both conditions before asynchronous location and prevents duplicate actions', async () => {
@@ -69,9 +69,9 @@ describe('useNearbyFood', () => {
     await flow.recommend()
     resolveLocation({ coords: { latitude: 25.033, longitude: 121.5654 } } as GeolocationPosition)
     await first
-    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 700, minRating: 4.5 })
+    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 700, minRating: 4.5, restaurantCategory: null })
     expect(geolocation.getCurrentPosition).toHaveBeenCalledTimes(1)
-    expect(flow.submittedConditions.value).toEqual({ radiusMeters: 700, minRating: 4.5 })
+    expect(flow.submittedConditions.value).toEqual({ radiusMeters: 700, minRating: 4.5, restaurantCategory: null })
     expect(flow.selectedRadiusMeters.value).toBe(1000)
     expect(flow.selectedMinRating.value).toBe(3.5)
   })
@@ -81,7 +81,7 @@ describe('useNearbyFood', () => {
     const flow = useNearbyFood({ geolocation: createGeolocation(), pick })
     flow.selectedMinRating.value = minRating
     await flow.recommend()
-    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 100, minRating })
+    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 100, minRating, restaurantCategory: null })
   })
 
   it.each([0, -0.5, 5.5, 4.3, NaN, Infinity, '4.5', true])('rejects invalid minimum rating %s before locating', async (value) => {
@@ -111,7 +111,7 @@ describe('useNearbyFood', () => {
       latitude: 25.0330,
       longitude: 121.5654,
       radiusMeters: 100,
-      minRating: null,
+      minRating: null, restaurantCategory: null,
     })
     expect(flow.state.value).toBe('selected')
     expect(flow.place.value).toEqual(selectedPlace)
@@ -135,7 +135,7 @@ describe('useNearbyFood', () => {
       latitude: 25.0330,
       longitude: 121.5654,
       radiusMeters: 700,
-      minRating: null,
+      minRating: null, restaurantCategory: null,
     })
   })
 
@@ -225,8 +225,92 @@ describe('useNearbyFood', () => {
       latitude: 25.0330,
       longitude: 121.5654,
       radiusMeters: 700,
-      minRating: null,
+      minRating: null, restaurantCategory: null,
     })
+    expect(geolocation?.getCurrentPosition).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('restaurant category flow', () => {
+  it('keeps category changes pending and resets to unrestricted without side effects', async () => {
+    const geolocation = createGeolocation()
+    const pick = vi.fn().mockResolvedValue(selectedPlace)
+    const flow = useNearbyFood({ geolocation, pick })
+    expect(flow.selectedRestaurantCategory.value).toBeNull()
+    flow.selectedRestaurantCategory.value = 'japanese'
+    flow.selectedRestaurantCategory.value = null
+    expect(geolocation?.getCurrentPosition).not.toHaveBeenCalled()
+    expect(pick).not.toHaveBeenCalled()
+    await flow.recommend()
+    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 100, minRating: null, restaurantCategory: null })
+  })
+
+  it.each(['taiwanese-chinese', 'japanese', 'korean', 'hot-pot', 'barbecue', 'italian', 'breakfast-brunch', 'fast-food', 'vegetarian', 'cafe-dessert'] as const)('submits product category %s in one search', async (restaurantCategory) => {
+    const geolocation = createGeolocation()
+    const pick = vi.fn().mockResolvedValue(selectedPlace)
+    const flow = useNearbyFood({ geolocation, pick })
+    flow.selectedRestaurantCategory.value = restaurantCategory
+    await flow.recommend()
+    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 100, minRating: null, restaurantCategory })
+    expect(geolocation?.getCurrentPosition).toHaveBeenCalledTimes(1)
+    expect(flow.state.value).toBe('selected')
+  })
+
+  it.each(['', 'all', 'Japanese', ' japanese ', 'restaurant', 'pizza_restaurant', 123, true, [], {}, undefined])('rejects invalid pending category %j before locating', async (value) => {
+    const geolocation = createGeolocation()
+    const pick = vi.fn()
+    const flow = useNearbyFood({ geolocation, pick })
+    flow.selectedRestaurantCategory.value = value as never
+    await flow.recommend()
+    expect(geolocation?.getCurrentPosition).not.toHaveBeenCalled()
+    expect(pick).not.toHaveBeenCalled()
+    expect(flow.state.value).toBe('provider-error')
+    expect(flow.error.value?.code).toBe('invalid_request')
+    expect(flow.error.value?.message).toContain('餐廳類型')
+  })
+
+  it('snapshots category before locating and uses later pending category on the next explicit action', async () => {
+    let resolveLocation!: PositionCallback
+    const geolocation = { getCurrentPosition: vi.fn((success: PositionCallback) => { resolveLocation = success }) }
+    const pick = vi.fn().mockResolvedValue(selectedPlace)
+    const flow = useNearbyFood({ geolocation, pick })
+    flow.selectedRadiusMeters.value = 1000
+    flow.selectedMinRating.value = 4
+    flow.selectedRestaurantCategory.value = 'japanese'
+    const first = flow.recommend()
+    expect(flow.state.value).toBe('locating')
+    flow.selectedRestaurantCategory.value = 'hot-pot'
+    await flow.recommend()
+    resolveLocation({ coords: { latitude: 25.033, longitude: 121.5654 } } as GeolocationPosition)
+    await first
+    expect(pick).toHaveBeenCalledExactlyOnceWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 1000, minRating: 4, restaurantCategory: 'japanese' })
+    expect(flow.submittedConditions.value).toEqual({ radiusMeters: 1000, minRating: 4, restaurantCategory: 'japanese' })
+    expect(geolocation.getCurrentPosition).toHaveBeenCalledTimes(1)
+    const second = flow.recommend()
+    resolveLocation({ coords: { latitude: 25.033, longitude: 121.5654 } } as GeolocationPosition)
+    await second
+    expect(pick).toHaveBeenLastCalledWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 1000, minRating: 4, restaurantCategory: 'hot-pot' })
+    expect(pick).toHaveBeenCalledTimes(2)
+  })
+
+  it('preserves submitted category after an empty search without retry or relaxation', async () => {
+    let rejectPick!: (reason: unknown) => void
+    const geolocation = createGeolocation()
+    const pick = vi.fn(() => new Promise<PlaceResult>((_resolve, reject) => { rejectPick = reject }))
+    const flow = useNearbyFood({ geolocation, pick })
+    flow.selectedRestaurantCategory.value = 'japanese'
+    flow.selectedRadiusMeters.value = 1000
+    flow.selectedMinRating.value = 4
+    const first = flow.recommend()
+    await vi.waitFor(() => expect(pick).toHaveBeenCalledTimes(1))
+    flow.selectedRestaurantCategory.value = 'hot-pot'
+    await flow.recommend()
+    rejectPick(new Error('no_results'))
+    await first
+    expect(flow.state.value).toBe('no-results')
+    expect(flow.selectedRestaurantCategory.value).toBe('hot-pot')
+    expect(flow.submittedConditions.value).toEqual({ radiusMeters: 1000, minRating: 4, restaurantCategory: 'japanese' })
+    expect(pick).toHaveBeenCalledTimes(1)
     expect(geolocation?.getCurrentPosition).toHaveBeenCalledTimes(1)
   })
 })

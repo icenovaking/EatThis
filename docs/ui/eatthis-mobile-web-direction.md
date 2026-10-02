@@ -18,8 +18,9 @@ EatThis is a calm, precise city utility. It starts with the user's walkable dist
 - The header is a small EatThis wordmark with a quiet city-guide descriptor.
 - `今天，吃什麼？` is the first strong content object and is supported by one sentence explaining on-demand location use.
 - The distance control is a labeled range input with a visible current value. It starts at `100 公尺`, uses 100-metre steps, and ends at `3 公里`.
-- Five stars below distance select a minimum rating in 0.5-star steps from 0.5 to 5. Left half selects n−0.5 and right half n; the default and explicit reset are 不限評分. Selected portions fill yellow and the numeric threshold remains visible.
-- The primary green action is labelled `幫我決定`; its secondary line names pending radius and rating or the busy state.
+- Eleven native restaurant-category radio choices sit below distance: 不限類型 plus 台式／中式、日式、韓式、火鍋、燒烤、義式、早餐／早午餐、速食、素食、咖啡／甜點. Only one is checked; labels wrap with a checkmark and border for selection.
+- Five stars below category select a minimum rating in 0.5-star steps from 0.5 to 5. Left half selects n−0.5 and right half n; the default and explicit reset are 不限評分. Selected portions fill yellow and the numeric threshold remains visible.
+- The primary green action is labelled `幫我決定`; its secondary line names pending radius, category and rating, even while the primary action is disabled during work.
 - The aria-live status follows the action in the same reading order. Loading, permission, provider, and no-result states include plain-language recovery.
 - A selected destination sheet follows the status and contains one name, address, distance, actual rating or 尚無評分, external map action, and the Google Maps attribution at its lower boundary.
 
@@ -48,7 +49,7 @@ The page is one vertical task surface:
 4. Read the announced state and, on success, one destination sheet.
 5. Continue through a normal external HTTPS link to Google Maps.
 
-Rating changes and reset have no location or API side effect. The primary action snapshots radius and minRating before requesting location; edits during loading affect the next action. An empty result identifies the submitted snapshot while preserving the pending controls. It offers lowering the rating, increasing distance only below 3000 metres, or explicitly retrying. No condition relaxes itself. A result displays the actual provider rating (for example 4.3) rather than rounding to a half star.
+Category and rating changes and reset have no location or API side effect. The primary action snapshots radius, restaurantCategory and minRating before requesting location; edits during loading affect the next action. An empty result identifies the submitted snapshot while preserving the pending controls. It offers changing a specific category or choosing unrestricted, lowering the rating, increasing distance only below 3000 metres, or explicitly retrying. No condition relaxes itself. A result displays the actual provider rating (for example 4.3) rather than rounding to a half star.
 
 ## State contract
 
@@ -60,13 +61,13 @@ Rating changes and reset have no location or API side effect. The primary action
 | selected | One place name, address, distance, navigation action, and attribution | `在地圖中開啟` | Result remains a single semantic destination sheet |
 | permission-denied | Permission recovery guidance | `再試一次` through the primary action | Error is announced and no API request is sent |
 | unsupported-geolocation | Browser capability explanation | Browser upgrade/retry guidance | No silent fallback location is used |
-| no-results | Searched radius and bounded recovery instruction | Adjust and explicitly search, or retry at the bound | Empty state is announced with the next action |
+| no-results | Submitted radius, category, rating and bounded recovery instruction | Adjust and explicitly search, or retry at the bound | Empty state is announced with the next action |
 | provider-error | Service failure explanation | `再試一次` through the primary action | Upstream details and credentials stay hidden |
 | rate-limited | Wait and retry timing | Retry after the supplied wait | Timing is announced in the live region |
 
 ## Responsive and accessibility rules
 
-- The layout is mobile-first from 320px upward. At 390px the radius value, range, and primary action remain in the initial task area without horizontal scrolling.
+- The layout is mobile-first from 320px upward. Category options and condition summaries wrap without horizontal scrolling; the primary action follows all three condition controls.
 - At 320px, long Traditional Chinese and Latin names, addresses, and the navigation action stay inside the destination sheet and wrap at safe boundaries.
 - Focus rings use a high-contrast jade outline with a clear offset. Links retain an underline offset and visible destination intent.
 - The range input exposes `min=100`, `max=3000`, `step=100`, an explicit label, and a formatted `aria-valuetext`.
@@ -86,3 +87,9 @@ This surface ships together with the API's 100-to-3000-metre validation and serv
 The rating extension adds optional nullable minRating and nullable rating; filtering occurs before deduplication and random selection, and unrated candidates qualify only when unrestricted. The fixed places.rating request uses Nearby Search Enterprise billing, even for unrestricted searches, and considers only the at most 20 candidates returned by Google. No-results copy means this search found no eligible candidate, not that the whole geographic area has none. Deploy the backend before the frontend; rollback the frontend first. Archive refine-nearby-food-search before add-minimum-rating-filter so its distance/localization baseline remains intact.
 
 Automated contract/DOM checks and browser verification are distinct. The half-star change's 320px, 390px and desktop pointer/touch/keyboard screenshots and assistive-technology checks remain pending when no browser runtime is connected; this is tracked in the change tasks rather than inferred from passing Vitest cases.
+
+## Restaurant-category verification
+
+Google includedTypes follows the server-owned product mapping documented in README.md. Category filtering happens in one Nearby Search request before rating filtering; the maximum remains 20 candidates and places.rating still uses Enterprise billing. Classification coverage is incomplete; no-results describes this search rather than all nearby businesses.
+
+Agent-run Vitest verifies the eleven radios, selection/reset without GPS/API, pending/submitted snapshots during locating/searching, no-results recovery and one-result behavior. Browser connection attempted for this change but no browsers were available. 320px/desktop wrapping, pointer targets, visible focus and native arrows/Space interaction remain pending manual verification; DOM checks are not browser evidence.

@@ -41,7 +41,7 @@ public sealed class GooglePlacesProvider(
         }
 
         var request = new GoogleNearbySearchRequest(
-            IncludedTypes,
+            GetIncludedTypes(query.RestaurantCategory),
             20,
             LanguageCode,
             new GoogleLocationRestriction(
@@ -121,6 +121,22 @@ public sealed class GooglePlacesProvider(
                     .ToArray();
         }
     }
+
+    private static IReadOnlyList<string> GetIncludedTypes(RestaurantCategory? category) => category switch
+    {
+        null => IncludedTypes,
+        RestaurantCategory.TaiwaneseChinese => ["taiwanese_restaurant", "chinese_restaurant"],
+        RestaurantCategory.Japanese => ["japanese_restaurant", "sushi_restaurant", "ramen_restaurant"],
+        RestaurantCategory.Korean => ["korean_restaurant", "korean_barbecue_restaurant"],
+        RestaurantCategory.HotPot => ["hot_pot_restaurant"],
+        RestaurantCategory.Barbecue => ["barbecue_restaurant", "yakiniku_restaurant"],
+        RestaurantCategory.Italian => ["italian_restaurant", "pizza_restaurant"],
+        RestaurantCategory.BreakfastBrunch => ["breakfast_restaurant", "brunch_restaurant"],
+        RestaurantCategory.FastFood => ["fast_food_restaurant", "hamburger_restaurant"],
+        RestaurantCategory.Vegetarian => ["vegetarian_restaurant", "vegan_restaurant"],
+        RestaurantCategory.CafeDessert => ["cafe", "coffee_shop", "dessert_shop", "dessert_restaurant"],
+        _ => throw new ArgumentOutOfRangeException(nameof(category)),
+    };
 
     private static PlaceCandidate? MapCandidate(GooglePlace place, NearbySearchQuery query)
     {
