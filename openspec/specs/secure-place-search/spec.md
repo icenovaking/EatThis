@@ -61,7 +61,7 @@ The backend SHALL load the Google Places API key from server-side configuration 
 #### Scenario: Public frontend request
 
 - **WHEN** a browser submits a nearby-food pick request
-- **THEN** the browser request contains only location, bounded radius and optional minimum-rating fields and the backend adds the provider credential when calling Google
+- **THEN** the browser request contains only location, bounded radius, optional minimum-rating and restaurant-category fields, and optional excludedNavigationUrls and lastNavigationUrl history fields and the backend adds the provider credential when calling Google
 
 #### Scenario: Public response inspection
 
@@ -70,39 +70,28 @@ The backend SHALL load the Google Places API key from server-side configuration 
 
 
 <!-- @trace
-source: add-minimum-rating-filter
-updated: 2026-10-02
+source: avoid-repeated-restaurants
+updated: 2026-10-03
 code:
-  - src/EatThis.Web/dist/assets/index-C7jsj6mC.js
-  - src/EatThis.Web/src/composables/useNearbyFood.ts
-  - tests/EatThis.Api.Tests/ContractFixtureTests.cs
-  - tests/EatThis.Api.Tests/RandomSelectionTests.cs
-  - src/EatThis.Web/src/App.vue
-  - src/EatThis.Web/src/styles.css
-  - tests/EatThis.Api.Tests/GooglePlacesProviderTests.cs
-  - docs/ui/eatthis-mobile-web-direction.md
-  - src/EatThis.Api/Contracts/NearbyFoodContracts.cs
-  - src/EatThis.Api/Infrastructure/GooglePlacesProvider.cs
-  - tests/EatThis.Api.Tests/ProviderNeutralContractTests.cs
-  - src/EatThis.Api/Application/PlaceCandidateRules.cs
-  - README.md
-  - src/EatThis.Web/dist/assets/index-CXt3g_nB.css
-  - src/EatThis.Web/dist/index.html
-  - src/EatThis.Web/src/types.ts
-  - src/EatThis.Web/dist/assets/index-DXQgLy6m.js
-  - tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs
-  - tests/fixtures/nearby-food-success.json
-  - tests/EatThis.Api.Tests/CandidateNormalizationTests.cs
-  - src/EatThis.Web/dist/assets/index-D4IjCKov.css
-  - PRODUCT.md
   - src/EatThis.Api/Application/NearbyFoodService.cs
-  - DESIGN.md
   - src/EatThis.Api/Domain/NearbySearchQuery.cs
+  - src/EatThis.Web/dist/index.html
+  - src/EatThis.Api/Contracts/NearbyFoodContracts.cs
+  - src/EatThis.Web/dist/assets/index-Ctu6DNAA.js
+  - src/EatThis.Web/src/types.ts
+  - tests/EatThis.Api.Tests/RandomSelectionTests.cs
+  - src/EatThis.Web/dist/assets/index-CMq0UGrf.js
+  - src/EatThis.Web/src/recommendationHistory.ts
   - src/EatThis.Api/Program.cs
+  - src/EatThis.Web/src/composables/useNearbyFood.ts
+  - README.md
+  - tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs
+  - tests/EatThis.Api.Tests/ProviderNeutralContractTests.cs
 tests:
-  - src/EatThis.Web/src/composables/useNearbyFood.spec.ts
-  - src/EatThis.Web/src/app.spec.ts
   - src/EatThis.Web/src/api/nearbyFoodApi.spec.ts
+  - src/EatThis.Web/src/app.spec.ts
+  - src/EatThis.Web/src/composables/useNearbyFood.spec.ts
+  - src/EatThis.Web/src/recommendationHistory.spec.ts
 -->
 
 ---
@@ -552,21 +541,21 @@ updated: 2026-10-02
 ---
 ### Requirement: Filter candidates before random selection
 
-NearbyFoodService SHALL apply existing usability validation, inclusive minimum-rating filtering, navigation-URL deduplication and then random selection in that order. With a non-null minimum rating, only candidates with a valid rating greater than or equal to the threshold SHALL qualify. With no minimum rating, missing rating SHALL NOT exclude an otherwise usable candidate. Valid normalized ratings SHALL be finite and between 1 and 5 inclusive; null SHALL represent unavailable rating. Out-of-range or non-finite normalized ratings from a provider SHALL fail candidate usability validation. Zero eligible candidates SHALL produce HTTP 404 no_results without random-source invocation, additional provider requests, or automatic condition relaxation.
+NearbyFoodService SHALL apply existing usability validation, inclusive minimum-rating filtering, navigation-URL deduplication, the restaurant-repeat-prevention selection policy and then random selection in that order. With a non-null minimum rating, only candidates with a valid rating greater than or equal to the threshold SHALL qualify. With no minimum rating, missing rating SHALL NOT exclude an otherwise usable candidate. Valid normalized ratings SHALL be finite and between 1 and 5 inclusive; null SHALL represent unavailable rating. Out-of-range or non-finite normalized ratings from a provider SHALL fail candidate usability validation. Zero eligible candidates SHALL produce HTTP 404 no_results without random-source invocation, additional provider requests, or automatic condition relaxation.
 
 #### Scenario: Inclusive threshold comparison
 
-- **WHEN** usable candidates have ratings 3.9, 4.0, 4.3 and null and minRating is 4.0
+- **WHEN** usable candidates have ratings 3.9, 4.0, 4.3 and null and minRating is 4.0 with no history supplied
 - **THEN** the random source receives a candidate count of two and selection returns only the 4.0 or 4.3 candidate
 
 #### Scenario: Unrestricted candidates
 
 - **WHEN** usable candidates have ratings 3.9, 4.0, 4.3 and null and minRating is null
-- **THEN** all four candidates participate in random selection with the existing deduplication rule
+- **THEN** all four candidates participate in random selection with the existing deduplication rule when no history is supplied
 
 #### Scenario: Rating filtering precedes deduplication
 
-- **WHEN** candidates with the same navigation URL have ratings 3.9 and 4.3 and minRating is 4.0
+- **WHEN** candidates with the same navigation URL have ratings 3.9 and 4.3 and minRating is 4.0 with no history supplied
 - **THEN** the qualifying 4.3 candidate remains eligible regardless of its position in the provider response
 
 #### Scenario: No rating-qualified candidate
@@ -574,15 +563,36 @@ NearbyFoodService SHALL apply existing usability validation, inclusive minimum-r
 - **WHEN** the returned candidates have ratings 3.9, 4.0, 4.3 and null and minRating is 4.5
 - **THEN** the endpoint returns HTTP 404 no_results, invokes no random source and makes no additional provider request
 
+
 <!-- @trace
-source: add-minimum-rating-filter
-updated: 2026-10-02
+source: avoid-repeated-restaurants
+updated: 2026-10-03
+code:
+  - src/EatThis.Api/Application/NearbyFoodService.cs
+  - src/EatThis.Api/Domain/NearbySearchQuery.cs
+  - src/EatThis.Web/dist/index.html
+  - src/EatThis.Api/Contracts/NearbyFoodContracts.cs
+  - src/EatThis.Web/dist/assets/index-Ctu6DNAA.js
+  - src/EatThis.Web/src/types.ts
+  - tests/EatThis.Api.Tests/RandomSelectionTests.cs
+  - src/EatThis.Web/dist/assets/index-CMq0UGrf.js
+  - src/EatThis.Web/src/recommendationHistory.ts
+  - src/EatThis.Api/Program.cs
+  - src/EatThis.Web/src/composables/useNearbyFood.ts
+  - README.md
+  - tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs
+  - tests/EatThis.Api.Tests/ProviderNeutralContractTests.cs
+tests:
+  - src/EatThis.Web/src/api/nearbyFoodApi.spec.ts
+  - src/EatThis.Web/src/app.spec.ts
+  - src/EatThis.Web/src/composables/useNearbyFood.spec.ts
+  - src/EatThis.Web/src/recommendationHistory.spec.ts
 -->
 
 ---
 ### Requirement: Validate an optional restaurant category
 
-The nearby-food endpoint SHALL accept optional nullable restaurantCategory as a provider-neutral string. Omission and null SHALL mean unrestricted category. The only valid non-null codes SHALL be taiwanese-chinese, japanese, korean, hot-pot, barbecue, italian, breakfast-brunch, fast-food, vegetarian and cafe-dessert. Membership SHALL use exact case-sensitive comparison without trimming. NearbySearchQuery SHALL carry a validated domain category rather than raw Google type strings. Invalid values or JSON types SHALL return HTTP 400 with errorCode invalid_request and an error message naming restaurant category without calling the provider. Existing location, radius and minimum-rating validation SHALL remain enforced. Successful response fields SHALL remain unchanged.
+The nearby-food endpoint SHALL accept optional nullable restaurantCategory as a provider-neutral string. Omission and null SHALL mean unrestricted category. The only valid non-null codes SHALL be taiwanese-chinese, japanese, korean, hot-pot, barbecue, italian, breakfast-brunch, fast-food, vegetarian and cafe-dessert. Membership SHALL use exact case-sensitive comparison without trimming. NearbySearchQuery SHALL carry a validated domain category rather than raw Google type strings. Invalid values or JSON types SHALL return HTTP 400 with errorCode invalid_request and an error message naming restaurant category without calling the provider. Existing location, radius and minimum-rating validation SHALL remain enforced. Successful responses SHALL preserve existing place fields and SHALL add resetNavigationUrls as specified by restaurant-repeat-prevention.
 
 #### Scenario: Backward-compatible unrestricted request
 
@@ -616,36 +626,28 @@ The nearby-food endpoint SHALL accept optional nullable restaurantCategory as a 
 
 
 <!-- @trace
-source: add-restaurant-type-filter
-updated: 2026-10-02
+source: avoid-repeated-restaurants
+updated: 2026-10-03
 code:
-  - src/EatThis.Api/Contracts/NearbyFoodContracts.cs
-  - src/EatThis.Api/Infrastructure/GooglePlacesProvider.cs
-  - src/EatThis.Web/dist/index.html
-  - tests/EatThis.Api.Tests/GooglePlacesProviderTests.cs
-  - src/EatThis.Web/dist/assets/index-CXt3g_nB.css
-  - src/EatThis.Api/Domain/RestaurantCategory.cs
-  - src/EatThis.Web/src/App.vue
-  - docs/ui/eatthis-mobile-web-direction.md
+  - src/EatThis.Api/Application/NearbyFoodService.cs
   - src/EatThis.Api/Domain/NearbySearchQuery.cs
-  - src/EatThis.Web/dist/assets/index-CMq0UGrf.js
-  - PRODUCT.md
-  - .impeccable/design.json
-  - tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs
-  - tests/EatThis.Api.Tests/ProviderNeutralContractTests.cs
-  - DESIGN.md
-  - src/EatThis.Web/dist/assets/index-xJA_ogI9.css
-  - tests/EatThis.Api.Tests/ProxyRestrictionTests.cs
+  - src/EatThis.Web/dist/index.html
+  - src/EatThis.Api/Contracts/NearbyFoodContracts.cs
+  - src/EatThis.Web/dist/assets/index-Ctu6DNAA.js
   - src/EatThis.Web/src/types.ts
-  - src/EatThis.Web/dist/assets/index-C7jsj6mC.js
-  - src/EatThis.Web/src/restaurantCategories.ts
-  - src/EatThis.Web/src/styles.css
+  - tests/EatThis.Api.Tests/RandomSelectionTests.cs
+  - src/EatThis.Web/dist/assets/index-CMq0UGrf.js
+  - src/EatThis.Web/src/recommendationHistory.ts
+  - src/EatThis.Api/Program.cs
   - src/EatThis.Web/src/composables/useNearbyFood.ts
   - README.md
+  - tests/EatThis.Api.Tests/NearbyFoodEndpointTests.cs
+  - tests/EatThis.Api.Tests/ProviderNeutralContractTests.cs
 tests:
-  - src/EatThis.Web/src/app.spec.ts
   - src/EatThis.Web/src/api/nearbyFoodApi.spec.ts
+  - src/EatThis.Web/src/app.spec.ts
   - src/EatThis.Web/src/composables/useNearbyFood.spec.ts
+  - src/EatThis.Web/src/recommendationHistory.spec.ts
 -->
 
 ---

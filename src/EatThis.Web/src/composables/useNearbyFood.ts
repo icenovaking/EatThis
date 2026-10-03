@@ -3,6 +3,7 @@ import { isValidRestaurantCategory, type RestaurantCategory } from '../restauran
 import { ApiRequestError, pickNearbyFood as defaultPickNearbyFood } from '../api/nearbyFoodApi'
 import { LocationError, requestCurrentLocation, type GeolocationPort } from '../geolocation'
 import type { NearbyFoodState, PlaceResult, SearchRequest } from '../types'
+import { createRecommendationHistory } from '../recommendationHistory'
 
 export type PickNearbyFood = (request: SearchRequest) => Promise<PlaceResult>
 
@@ -61,6 +62,7 @@ export function useNearbyFood(options: NearbyFoodOptions = {}) {
   const currentLocation = ref<{ latitude: number; longitude: number } | null>(null)
   const isBusy = computed(() => state.value === 'locating' || state.value === 'searching')
   const pick = options.pick ?? defaultPickNearbyFood
+  const history = createRecommendationHistory()
 
   async function recommend(): Promise<void> {
     if (isBusy.value) {
@@ -121,8 +123,9 @@ export function useNearbyFood(options: NearbyFoodOptions = {}) {
     error.value = null
 
     try {
-      place.value = await pick({ ...location, ...conditions })
+      place.value = await pick({ ...location, ...conditions, ...history.request() })
       state.value = 'selected'
+      history.record(place.value.navigationUrl, place.value.resetNavigationUrls)
     } catch (caught) {
       handleApiError(caught)
     }

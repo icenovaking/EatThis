@@ -6,6 +6,8 @@ export interface SearchRequest {
   radiusMeters: number
   minRating?: number | null
   restaurantCategory?: RestaurantCategory | null
+  excludedNavigationUrls?: string[] | null
+  lastNavigationUrl?: string | null
 }
 
 export interface PlaceResult {
@@ -17,6 +19,7 @@ export interface PlaceResult {
   navigationUrl: string
   provider: string
   rating?: number | null
+  resetNavigationUrls?: string[]
 }
 
 export interface ApiErrorPayload {

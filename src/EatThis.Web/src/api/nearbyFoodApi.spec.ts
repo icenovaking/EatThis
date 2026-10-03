@@ -15,6 +15,14 @@ const result = JSON.parse(
 ) as PlaceResult
 
 describe('pickNearbyFood', () => {
+  it('sends history once and preserves reset keys in the selected result', async () => {
+    const response = { ...result, resetNavigationUrls: ['A', 'B'] }
+    const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => response } as Response)
+    const withHistory = { ...request, excludedNavigationUrls: ['A', 'B'], lastNavigationUrl: 'B' }
+    await expect(pickNearbyFood(withHistory, fetcher)).resolves.toEqual(response)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(fetcher.mock.calls[0]![1].body)).toEqual(withHistory)
+  })
   it.each([4.5, null])('serializes optional minimum rating %s without provider options', async (minRating) => {
     const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ...result, rating: 4.7 }) } as Response)
     const response = await pickNearbyFood({ ...request, minRating }, fetcher)

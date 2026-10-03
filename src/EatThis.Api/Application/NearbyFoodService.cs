@@ -38,13 +38,25 @@ public sealed class NearbyFoodService(
             return new PickResult.NoResults();
         }
 
-        var index = randomSource.Next(usableCandidates.Length);
-        if (index < 0 || index >= usableCandidates.Length)
+        var excluded = new HashSet<string>(request!.ExcludedNavigationUrls ?? [], StringComparer.OrdinalIgnoreCase);
+        var drawCandidates = usableCandidates.Where(candidate => !excluded.Contains(candidate.NavigationUrl)).ToArray();
+        string[] resetNavigationUrls = [];
+        if (drawCandidates.Length == 0)
+        {
+            resetNavigationUrls = usableCandidates.Select(candidate => candidate.NavigationUrl).ToArray();
+            drawCandidates = usableCandidates.Length == 1
+                ? usableCandidates
+                : usableCandidates.Where(candidate => !string.Equals(
+                    candidate.NavigationUrl, request.LastNavigationUrl, StringComparison.OrdinalIgnoreCase)).ToArray();
+        }
+
+        var index = randomSource.Next(drawCandidates.Length);
+        if (index < 0 || index >= drawCandidates.Length)
         {
             throw new InvalidOperationException("The random source returned an invalid candidate index.");
         }
 
-        return new PickResult.Success(usableCandidates[index]);
+        return new PickResult.Success(drawCandidates[index], resetNavigationUrls);
     }
 }
 
@@ -54,7 +66,7 @@ public abstract record PickResult
     {
     }
 
-    public sealed record Success(PlaceCandidate Place) : PickResult;
+    public sealed record Success(PlaceCandidate Place, IReadOnlyList<string> ResetNavigationUrls) : PickResult;
 
     public sealed record InvalidRequest : PickResult;
 

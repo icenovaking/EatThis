@@ -7,7 +7,9 @@ public sealed record NearbyFoodRequest(
     double Longitude,
     int? RadiusMeters = null,
     [property: JsonNumberHandling(JsonNumberHandling.Strict)] double? MinRating = null,
-    string? RestaurantCategory = null);
+    string? RestaurantCategory = null,
+    string[]? ExcludedNavigationUrls = null,
+    string? LastNavigationUrl = null);
 
 public sealed record PlaceCandidate(
     string Name,
@@ -18,6 +20,17 @@ public sealed record PlaceCandidate(
     string NavigationUrl,
     string Provider,
     double? Rating = null);
+
+public sealed record NearbyFoodResponse(
+    string Name,
+    string Address,
+    double Latitude,
+    double Longitude,
+    double DistanceMeters,
+    string NavigationUrl,
+    string Provider,
+    double? Rating,
+    IReadOnlyList<string> ResetNavigationUrls);
 
 public sealed record ApiErrorResponse(
     [property: JsonPropertyName("errorCode")] string ErrorCode,

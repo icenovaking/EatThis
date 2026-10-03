@@ -9,6 +9,23 @@ namespace EatThis.Api.Tests;
 public sealed class ProviderNeutralContractTests
 {
     [TestMethod]
+    public async Task History_stays_out_of_provider_query_and_provider_candidate()
+    {
+        const string url = "https://example.com/japanese";
+        var provider = new CategoryProvider([new("日式店", "Taipei", 25.033, 121.5654, 10, url, "alternative", 4.3)]);
+        var result = await new NearbyFoodService(provider, new FirstCandidateRandomSource()).PickAsync(
+            new NearbyFoodRequest(25.033, 121.5654, 1000, 4, "japanese", [url], url), CancellationToken.None);
+        Assert.IsInstanceOfType<PickResult.Success>(result, out var success);
+        Assert.AreEqual("alternative", success.Place.Provider);
+        CollectionAssert.AreEqual(new[] { url }, success.ResetNavigationUrls.ToArray());
+        Assert.AreEqual(new NearbySearchQuery(25.033, 121.5654, 1000, 4, RestaurantCategory.Japanese), provider.LastQuery);
+        Assert.AreEqual(1, provider.CallCount);
+        Assert.IsNull(typeof(NearbySearchQuery).GetProperty("ExcludedNavigationUrls"));
+        Assert.IsNull(typeof(NearbySearchQuery).GetProperty("LastNavigationUrl"));
+        Assert.IsNull(typeof(PlaceCandidate).GetProperty("ResetNavigationUrls"));
+    }
+
+    [TestMethod]
     public async Task Alternative_provider_receives_validated_category_and_exact_rating_combination()
     {
         var provider = new CategoryProvider([new("日式店", "Taipei", 25.033, 121.5654, 10, "https://example.com/japanese", "alternative", 4.3)]);

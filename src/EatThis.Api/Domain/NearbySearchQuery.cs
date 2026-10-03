@@ -9,6 +9,9 @@ public readonly record struct NearbySearchQuery(
     double? MinRating = null,
     RestaurantCategory? RestaurantCategory = null)
 {
+    public const int MaximumHistoryEntries = 1000;
+    public const int MaximumHistoryKeyLength = 2048;
+
     public const int DefaultRadiusMeters = 3000;
     public const int MinimumRadiusMeters = 100;
     public const int MaximumRadiusMeters = 3000;
@@ -42,7 +45,16 @@ public readonly record struct NearbySearchQuery(
             return false;
         }
 
+        if (request.ExcludedNavigationUrls is { } excluded &&
+            (excluded.Length > MaximumHistoryEntries || excluded.Any(key => !IsValidHistoryKey(key))) ||
+            request.LastNavigationUrl is { } last && !IsValidHistoryKey(last))
+        {
+            return false;
+        }
+
         query = new NearbySearchQuery(request.Latitude, request.Longitude, radiusMeters, request.MinRating, category);
         return true;
     }
+    private static bool IsValidHistoryKey(string? key) =>
+        !string.IsNullOrWhiteSpace(key) && key.Length <= MaximumHistoryKeyLength;
 }

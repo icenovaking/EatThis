@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ApiRequestError } from '../api/nearbyFoodApi'
 import { useNearbyFood } from './useNearbyFood'
 import type { PlaceResult } from '../types'
 
@@ -11,6 +12,8 @@ const selectedPlace: PlaceResult = {
   navigationUrl: 'https://www.google.com/maps/place/example',
   provider: 'google',
 }
+
+beforeEach(() => localStorage.clear())
 
 function createGeolocation(
   behavior: 'success' | 'permission-denied' | 'unsupported' = 'success',
@@ -289,7 +292,7 @@ describe('restaurant category flow', () => {
     const second = flow.recommend()
     resolveLocation({ coords: { latitude: 25.033, longitude: 121.5654 } } as GeolocationPosition)
     await second
-    expect(pick).toHaveBeenLastCalledWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 1000, minRating: 4, restaurantCategory: 'hot-pot' })
+    expect(pick).toHaveBeenLastCalledWith({ latitude: 25.033, longitude: 121.5654, radiusMeters: 1000, minRating: 4, restaurantCategory: 'hot-pot', excludedNavigationUrls: [selectedPlace.navigationUrl], lastNavigationUrl: selectedPlace.navigationUrl })
     expect(pick).toHaveBeenCalledTimes(2)
   })
 
@@ -312,5 +315,73 @@ describe('restaurant category flow', () => {
     expect(flow.submittedConditions.value).toEqual({ radiusMeters: 1000, minRating: 4, restaurantCategory: 'japanese' })
     expect(pick).toHaveBeenCalledTimes(1)
     expect(geolocation?.getCurrentPosition).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('recommendation history integration', () => {
+  const historyKey = 'eatthis.recommendation-history.v1'
+
+  it('records only displayed success and preserves history across reload and changed conditions', async () => {
+    const pick = vi.fn().mockResolvedValue(selectedPlace)
+    const first = useNearbyFood({ geolocation: createGeolocation(), pick })
+    await first.recommend()
+    const reloaded = useNearbyFood({ geolocation: createGeolocation(), pick })
+    reloaded.selectedRadiusMeters.value = 1000
+    reloaded.selectedMinRating.value = 4
+    reloaded.selectedRestaurantCategory.value = 'japanese'
+    await reloaded.recommend()
+    expect(pick).toHaveBeenLastCalledWith(expect.objectContaining({
+      radiusMeters: 1000, minRating: 4, restaurantCategory: 'japanese',
+      excludedNavigationUrls: [selectedPlace.navigationUrl], lastNavigationUrl: selectedPlace.navigationUrl,
+    }))
+    expect(pick).toHaveBeenCalledTimes(2)
+  })
+
+  it('applies a round reset before recording the new result and preserves unrelated history', async () => {
+    localStorage.setItem(historyKey, JSON.stringify({ version: 1,
+      entries: ['A', 'B', 'D'].map(navigationUrl => ({ navigationUrl, shownAt: Date.now() })),
+      lastShown: { navigationUrl: 'B', shownAt: Date.now() },
+    }))
+    const pick = vi.fn().mockResolvedValue({ ...selectedPlace, navigationUrl: 'A', resetNavigationUrls: ['A', 'B'] })
+    const flow = useNearbyFood({ geolocation: createGeolocation(), pick })
+    await flow.recommend()
+    await flow.recommend()
+    expect(pick).toHaveBeenLastCalledWith(expect.objectContaining({ excludedNavigationUrls: ['D', 'A'], lastNavigationUrl: 'A' }))
+  })
+
+  it.each([404, 429, 503])('does not update history or retry on HTTP %s', async status => {
+    const seed = JSON.stringify({ version: 1, entries: [{ navigationUrl: 'A', shownAt: Date.now() }], lastShown: null })
+    localStorage.setItem(historyKey, seed)
+    const pick = vi.fn().mockRejectedValue(new ApiRequestError(status, 'failure', 'failure'))
+    const flow = useNearbyFood({ geolocation: createGeolocation(), pick })
+    await flow.recommend()
+    expect(localStorage.getItem(historyKey)).toBe(seed)
+    expect(pick).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ excludedNavigationUrls: ['A'] }))
+  })
+
+  it('does not change history when location permission is denied', async () => {
+    const seed = JSON.stringify({ version: 1, entries: [{ navigationUrl: 'A', shownAt: Date.now() }], lastShown: null })
+    localStorage.setItem(historyKey, seed)
+    const pick = vi.fn()
+    await useNearbyFood({ geolocation: createGeolocation('permission-denied'), pick }).recommend()
+    expect(pick).not.toHaveBeenCalled()
+    expect(localStorage.getItem(historyKey)).toBe(seed)
+  })
+
+  it('records the display time rather than the request start and expires before the next request', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-10-02T12:00:00Z'))
+      const pick = vi.fn().mockImplementation(async () => {
+        vi.setSystemTime(new Date('2026-10-02T12:01:00Z'))
+        return selectedPlace
+      })
+      const flow = useNearbyFood({ geolocation: createGeolocation(), pick })
+      await flow.recommend()
+      expect(JSON.parse(localStorage.getItem(historyKey)!).lastShown.shownAt).toBe(Date.parse('2026-10-02T12:01:00Z'))
+      vi.setSystemTime(new Date('2026-10-02T12:31:00Z'))
+      await flow.recommend()
+      expect(pick.mock.calls[1]![0]).not.toHaveProperty('excludedNavigationUrls')
+    } finally { vi.useRealTimers() }
   })
 })

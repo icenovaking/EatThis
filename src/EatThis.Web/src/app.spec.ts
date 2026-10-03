@@ -1,9 +1,11 @@
 import { mount } from '@vue/test-utils'
 import { flushPromises } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiRequestError } from './api/nearbyFoodApi'
 import App from './App.vue'
 import type { PlaceResult } from './types'
+
+beforeEach(() => localStorage.clear())
 
 const selectedPlace: PlaceResult = {
   name: 'Example Food Shop',

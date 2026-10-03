@@ -10,6 +10,106 @@ namespace EatThis.Api.Tests;
 public sealed class NearbyFoodEndpointTests
 {
     [TestMethod]
+    public async Task Exhausted_singleton_returns_reset_keys_with_original_place_fields()
+    {
+        const string url = "https://www.google.com/maps/place/example";
+        await using var factory = new EatThisApiFactory();
+        using var client = factory.CreateClient();
+        using var response = await client.PostAsJsonAsync("/api/nearby-food/pick", new {
+            latitude = 25.033, longitude = 121.5654,
+            excludedNavigationUrls = new[] { url.ToUpperInvariant(), url }, lastNavigationUrl = url
+        });
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        using var json = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var place = json.RootElement;
+        Assert.AreEqual("Example Food Shop", place.GetProperty("name").GetString());
+        Assert.AreEqual("Taipei City", place.GetProperty("address").GetString());
+        Assert.AreEqual(25.0331, place.GetProperty("latitude").GetDouble());
+        Assert.AreEqual(121.5655, place.GetProperty("longitude").GetDouble());
+        Assert.AreEqual(420, place.GetProperty("distanceMeters").GetDouble());
+        Assert.AreEqual(url, place.GetProperty("navigationUrl").GetString());
+        Assert.AreEqual("google", place.GetProperty("provider").GetString());
+        Assert.AreEqual(System.Text.Json.JsonValueKind.Null, place.GetProperty("rating").ValueKind);
+        CollectionAssert.AreEqual(new[] { url }, place.GetProperty("resetNavigationUrls").EnumerateArray().Select(key => key.GetString()).ToArray());
+        Assert.AreEqual(1, factory.ProviderCalls);
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow(",\"excludedNavigationUrls\":null,\"lastNavigationUrl\":null")]
+    [DataRow(",\"excludedNavigationUrls\":[]")]
+    public async Task Omitted_null_or_empty_history_preserves_top_level_place(string history)
+    {
+        await using var factory = new EatThisApiFactory();
+        using var client = factory.CreateClient();
+        using var body = new StringContent("{\"latitude\":25.033,\"longitude\":121.5654" + history + "}", System.Text.Encoding.UTF8, "application/json");
+        using var response = await client.PostAsync("/api/nearby-food/pick", body);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        using var json = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.AreEqual("Example Food Shop", json.RootElement.GetProperty("name").GetString());
+        Assert.AreEqual(0, json.RootElement.GetProperty("resetNavigationUrls").GetArrayLength());
+        Assert.AreEqual(1, factory.ProviderCalls);
+    }
+
+    [TestMethod]
+    [DataRow("\"excludedNavigationUrls\":\"A\"")]
+    [DataRow("\"excludedNavigationUrls\":{}")]
+    [DataRow("\"excludedNavigationUrls\":true")]
+    [DataRow("\"excludedNavigationUrls\":123")]
+    [DataRow("\"excludedNavigationUrls\":[null]")]
+    [DataRow("\"excludedNavigationUrls\":[123]")]
+    [DataRow("\"excludedNavigationUrls\":[\" \"]")]
+    [DataRow("\"excludedNavigationUrls\":[\"\"]")]
+    [DataRow("\"lastNavigationUrl\":\" \"")]
+    [DataRow("\"lastNavigationUrl\":\"\"")]
+    [DataRow("\"lastNavigationUrl\":123")]
+    [DataRow("\"lastNavigationUrl\":[]")]
+    [DataRow("\"lastNavigationUrl\":{}")]
+    [DataRow("\"lastNavigationUrl\":false")]
+    public async Task Invalid_history_returns_invalid_request_without_provider(string history)
+    {
+        await using var factory = new EatThisApiFactory();
+        using var client = factory.CreateClient();
+        using var body = new StringContent("{\"latitude\":25.033,\"longitude\":121.5654," + history + "}", System.Text.Encoding.UTF8, "application/json");
+        using var response = await client.PostAsync("/api/nearby-food/pick", body);
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.AreEqual("invalid_request", (await response.Content.ReadFromJsonAsync<ApiErrorResponse>())?.ErrorCode);
+        Assert.AreEqual(0, factory.ProviderCalls);
+    }
+
+    [TestMethod]
+    [DataRow(1000, 2048, true)]
+    [DataRow(1001, 2048, false)]
+    [DataRow(1, 2049, false)]
+    public async Task History_count_and_key_length_bounds_are_enforced(int count, int length, bool valid)
+    {
+        await using var factory = new EatThisApiFactory();
+        using var client = factory.CreateClient();
+        using var response = await client.PostAsJsonAsync("/api/nearby-food/pick", new {
+            latitude = 25.033, longitude = 121.5654,
+            excludedNavigationUrls = Enumerable.Repeat(new string('a', length), count).ToArray()
+        });
+        Assert.AreEqual(valid ? HttpStatusCode.OK : HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.AreEqual(valid ? 1 : 0, factory.ProviderCalls);
+        if (!valid) Assert.AreEqual("invalid_request", (await response.Content.ReadFromJsonAsync<ApiErrorResponse>())?.ErrorCode);
+    }
+
+    [TestMethod]
+    [DataRow(2048, true)]
+    [DataRow(2049, false)]
+    public async Task Last_history_key_length_bounds_are_enforced(int length, bool valid)
+    {
+        await using var factory = new EatThisApiFactory();
+        using var client = factory.CreateClient();
+        using var response = await client.PostAsJsonAsync("/api/nearby-food/pick", new {
+            latitude = 25.033, longitude = 121.5654, lastNavigationUrl = new string('a', length)
+        });
+        Assert.AreEqual(valid ? HttpStatusCode.OK : HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.AreEqual(valid ? 1 : 0, factory.ProviderCalls);
+        if (!valid) Assert.AreEqual("invalid_request", (await response.Content.ReadFromJsonAsync<ApiErrorResponse>())?.ErrorCode);
+    }
+
+    [TestMethod]
     [DataRow("", null)]
     [DataRow(",\"restaurantCategory\":null", null)]
     [DataRow(",\"restaurantCategory\":\"taiwanese-chinese\"", EatThis.Api.Domain.RestaurantCategory.TaiwaneseChinese)]
@@ -35,7 +135,7 @@ public sealed class NearbyFoodEndpointTests
         Assert.AreEqual(expected, factory.LastQuery?.RestaurantCategory);
         using var json = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         CollectionAssert.AreEquivalent(
-            new[] { "name", "address", "latitude", "longitude", "distanceMeters", "navigationUrl", "provider", "rating" },
+            new[] { "name", "address", "latitude", "longitude", "distanceMeters", "navigationUrl", "provider", "rating", "resetNavigationUrls" },
             json.RootElement.EnumerateObject().Select(property => property.Name).ToArray());
     }
 
