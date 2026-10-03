@@ -15,13 +15,15 @@ EatThis is a calm, precise city utility. It starts with the user's walkable dist
 
 ## First viewport
 
-- The header is a small EatThis wordmark with a quiet city-guide descriptor.
-- `今天，吃什麼？` is the first strong content object and is supported by one sentence explaining on-demand location use.
+- The header contains only the small EatThis wordmark; the city-guide descriptor, decorative separator and 今日附近 are omitted.
+- `今天，吃什麼？` is the first strong content object, without the introductory location-use paragraph. The category suggestion and half-star instructional sentence are also omitted; fieldset legends and accessible option names remain.
 - The distance control is a labeled range input with a visible current value. It starts at `100 公尺`, uses 100-metre steps, and ends at `3 公里`.
 - Eleven native restaurant-category radio choices sit below distance: 不限類型 plus 台式／中式、日式、韓式、火鍋、燒烤、義式、早餐／早午餐、速食、素食、咖啡／甜點. Only one is checked; labels wrap with a checkmark and border for selection.
 - Five stars below category select a minimum rating in 0.5-star steps from 0.5 to 5. Left half selects n−0.5 and right half n; the default and explicit reset are 不限評分. Selected portions fill yellow and the numeric threshold remains visible.
+- Rating text and reset share a right-aligned intrinsic-width column with equal text-box and button-border widths. The pair wraps together below the intact star row when space is insufficient. Half-star targets stay at least 24px wide and 48px high. Pointer hover and touch selection show no rectangular half-star outline; keyboard focus stays visible.
 - The primary green action is labelled `幫我決定`; its secondary line names pending radius, category and rating, even while the primary action is disabled during work.
 - The aria-live status follows the action in the same reading order. Loading, permission, provider, and no-result states include plain-language recovery.
+- The location-use note below the action, initial 準備好了 status, GPS 只在你要求時使用 and 外部導覽 footer notes remain. The distance-control instructions and primary action's current-condition summary also remain.
 - A selected destination sheet follows the status and contains one name, address, distance, actual rating or 尚無評分, external map action, and the Google Maps attribution at its lower boundary.
 
 ## Material and visual system

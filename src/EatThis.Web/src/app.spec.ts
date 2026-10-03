@@ -49,6 +49,38 @@ function successfulGeolocation() {
 }
 
 describe('EatThis shell', () => {
+  it('removes redundant search guidance while preserving action and status copy', () => {
+    const wrapper = mount(App)
+
+    for (const copy of [
+      '附近的城市飲食指南',
+      '今日附近',
+      '先決定你願意走多遠，EatThis 只在你按下按鈕後取一次位置，替你選一間。',
+      '選一種想吃的類型，或交給我們決定',
+      '點星星左半選半星，右半選整星',
+    ]) {
+      expect(wrapper.text()).not.toContain(copy)
+    }
+    expect(wrapper.get('header').text()).toBe('EatThis')
+    expect(wrapper.get('h1').text()).toBe('今天，吃什麼？')
+    expect(wrapper.get('#radius-help').text()).toBe('拖曳或使用方向鍵調整範圍')
+    expect(wrapper.get('[data-action="recommend"]').text()).toContain('目前條件 · 100 公尺 · 不限類型 · 不限評分')
+    expect(wrapper.get('.action-note').text()).toBe('按下後才會使用目前位置；結果會交給 Google Maps 開啟路線。')
+    expect(wrapper.get('[role="status"]').text()).toBe('準備好了。選好距離、餐廳類型與最低評分後，讓 EatThis 幫你挑一間。')
+    expect(wrapper.get('footer').findAll('span').map(note => note.text())).toEqual(['GPS 只在你要求時使用', '外部導覽'])
+  })
+
+  it('keeps named filter groups and resolves every descriptive reference', () => {
+    const wrapper = mount(App)
+
+    expect(wrapper.findAll('fieldset legend').map(legend => legend.text())).toEqual(['餐廳類型', '最低評分'])
+    for (const control of wrapper.findAll('[aria-describedby]')) {
+      for (const id of control.attributes('aria-describedby')!.split(/\s+/)) {
+        expect(wrapper.find(`[id="${id}"]`).exists()).toBe(true)
+      }
+    }
+  })
+
   it('offers ten accessible half-star choices and an unrestricted default without side effects', async () => {
     const geolocation = successfulGeolocation()
     const pick = vi.fn()

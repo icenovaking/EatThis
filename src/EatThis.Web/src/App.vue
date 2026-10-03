@@ -85,20 +85,12 @@ function formatRadius(radiusMeters: number): string {
 <template>
   <main class="eatthis-shell">
     <header class="app-header" aria-label="EatThis product header">
-      <div class="brand-lockup">
-        <span class="wordmark">EatThis</span>
-        <span class="brand-rule" aria-hidden="true"></span>
-        <span class="top-line-note">附近的城市飲食指南</span>
-      </div>
-      <span class="header-status">今日附近</span>
+      <span class="wordmark">EatThis</span>
     </header>
 
     <section class="search-surface" :class="{ 'is-busy': isBusy }" aria-labelledby="search-title">
       <div class="intro-block">
         <h1 id="search-title">今天，吃什麼？</h1>
-        <p class="lead-copy">
-          先決定你願意走多遠，EatThis 只在你按下按鈕後取一次位置，替你選一間。
-        </p>
       </div>
 
       <div class="radius-control" data-control-group>
@@ -128,9 +120,8 @@ function formatRadius(radiusMeters: number): string {
         </div>
       </div>
 
-      <fieldset class="category-control" data-control="restaurant-category" aria-describedby="category-help">
+      <fieldset class="category-control" data-control="restaurant-category">
         <legend>餐廳類型</legend>
-        <p id="category-help">選一種想吃的類型，或交給我們決定</p>
         <div class="category-options">
           <label v-for="option in RESTAURANT_CATEGORY_OPTIONS" :key="option.value ?? 'unrestricted'" class="category-option">
             <input type="radio" name="restaurant-category" :value="option.value" v-model="selectedRestaurantCategory" :aria-label="option.label">
@@ -140,12 +131,8 @@ function formatRadius(radiusMeters: number): string {
         </div>
       </fieldset>
 
-      <fieldset class="rating-control" aria-describedby="rating-help">
+      <fieldset class="rating-control">
         <legend>最低評分</legend>
-        <div class="rating-heading">
-          <p id="rating-help">點星星左半選半星，右半選整星</p>
-          <span class="rating-value" data-rating-value>{{ ratingLabel }}</span>
-        </div>
         <div class="rating-options">
           <div class="rating-stars">
             <div v-for="star in stars" :key="star.number" class="rating-star">
@@ -160,10 +147,13 @@ function formatRadius(radiusMeters: number): string {
               </label>
             </div>
           </div>
-          <label class="rating-unrestricted">
-            <input id="rating-unrestricted" type="radio" name="minimum-rating" :value="null" v-model="selectedMinRating" aria-label="不限評分">
-            <span>不限評分</span>
-          </label>
+          <div class="rating-summary">
+            <span class="rating-value" data-rating-value>{{ ratingLabel }}</span>
+            <label class="rating-unrestricted">
+              <input id="rating-unrestricted" type="radio" name="minimum-rating" :value="null" v-model="selectedMinRating" aria-label="不限評分">
+              <span>不限評分</span>
+            </label>
+          </div>
         </div>
       </fieldset>
 

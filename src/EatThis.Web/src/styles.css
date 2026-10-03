@@ -84,7 +84,6 @@ button:disabled {
 }
 
 .app-header,
-.brand-lockup,
 .control-heading,
 .range-scale,
 .place-heading,
@@ -107,11 +106,6 @@ button:disabled {
   border-bottom: 1px solid var(--line);
 }
 
-.brand-lockup {
-  gap: 12px;
-  min-width: 0;
-}
-
 .wordmark {
   flex: 0 0 auto;
   font-size: 0.9rem;
@@ -120,24 +114,10 @@ button:disabled {
   text-transform: uppercase;
 }
 
-.brand-rule {
-  width: 1px;
-  height: 18px;
-  flex: 0 0 auto;
-  background: var(--line);
-}
-
-.top-line-note,
-.header-status,
 .footer-note {
   color: var(--muted);
   font-size: 0.78rem;
   letter-spacing: 0.02em;
-}
-
-.header-status {
-  flex: 0 0 auto;
-  white-space: nowrap;
 }
 
 .search-surface {
@@ -157,20 +137,12 @@ p {
 
 h1 {
   max-width: 12ch;
-  margin-bottom: 18px;
+  margin-bottom: 0;
   font-size: clamp(2.45rem, 9vw, 4.6rem);
   font-weight: 850;
   letter-spacing: -0.035em;
   line-height: 1.02;
   text-wrap: balance;
-}
-
-.lead-copy {
-  max-width: 52ch;
-  margin-bottom: 0;
-  color: var(--muted);
-  font-size: 1rem;
-  line-height: 1.8;
 }
 
 .radius-control {
@@ -288,17 +260,11 @@ input[type="range"]:active::-moz-range-thumb {
   font-weight: 750;
 }
 
-#category-help {
-  margin: 6px 0 12px;
-  color: var(--muted);
-  font-size: 0.78rem;
-  line-height: 1.5;
-}
-
 .category-options {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 12px;
 }
 
 .category-option {
@@ -372,34 +338,32 @@ input[type="range"]:active::-moz-range-thumb {
   font-weight: 750;
 }
 
-.rating-heading,
 .rating-options {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px 16px;
+  margin-top: 12px;
 }
 
-.rating-heading {
-  justify-content: space-between;
-  margin: 6px 0 12px;
-}
-
-#rating-help {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.78rem;
-  line-height: 1.5;
+.rating-summary {
+  display: grid;
+  grid-template-columns: max-content;
+  gap: 8px;
+  margin-inline-start: auto;
 }
 
 .rating-value {
   font-size: 0.88rem;
   font-weight: 750;
   font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .rating-stars {
   display: flex;
+  flex: 0 0 auto;
   gap: clamp(0px, 1vw, 4px);
 }
 
@@ -450,20 +414,17 @@ input[type="range"]:active::-moz-range-thumb {
   outline-offset: 2px;
 }
 
-.rating-half:hover {
-  outline: 1px solid var(--muted);
-  outline-offset: -1px;
-}
-
 .rating-unrestricted {
   position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 44px;
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
   font-size: 0.82rem;
+  white-space: nowrap;
   cursor: pointer;
 }
 

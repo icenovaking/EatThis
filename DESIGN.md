@@ -116,7 +116,7 @@ Rating stars add a functional yellow (#e9b528) for selection and rating gray (#c
 
 Five authored SVG stars sit after restaurant category and before the primary action. Ten native radio inputs cover the left and right halves; a separate unrestricted radio resets the value to null. Each left half selects n−0.5, each right half selects n. Selected portions fill yellow without changing on hover; the numeric label identifies the minimum threshold, such as 4.5 星以上.
 
-The shared star-size token is clamp(48px, 8vw, 56px), making each half target at least 24px wide and 48px high. The five-star row stays together; labels and unrestricted selection wrap as needed. Focus uses the existing jade outline, and a fine hover outline identifies the selectable half without previewing another threshold. The group exposes native keyboard radio behavior and accessible names. No inline per-device geometry is used.
+The shared star-size token is clamp(48px, 8vw, 56px), making each half target at least 24px wide and 48px high. The five-star row stays together. The numeric label and unrestricted selection share an intrinsic-width grid column at the right edge; the text box and reset border have equal widths. This pair wraps together below the stars when space is insufficient. Pointer hover and touch selection add no rectangular half-star outline; keyboard focus retains the existing jade outline. The group exposes native keyboard radio behavior and accessible names. No inline per-device geometry is used.
 
 The primary action names pending distance, restaurant category and rating, including while busy. Operation messages and recovery name the submitted snapshot. The destination sheet includes one small yellow SVG star alongside the actual rating number or 尚無評分; this result is informational rather than editable.
 
@@ -159,6 +159,8 @@ The supporting scale gives the wordmark, range control, compact notes, live radi
 ## Layout
 
 The page is a single vertical task surface capped at a readable 760px shell. The shell uses 24px horizontal breathing room on regular widths and 16px at the compact breakpoint; the first viewport keeps the headline, radius value, range, restaurant category, rating, action, and live status in one sequence. Sections are separated by fine rules and deliberate vertical intervals rather than a grid of independent cards.
+
+The header contains only the EatThis wordmark. The city-guide descriptor, 今日附近, introductory location paragraph, category suggestion and half-star instructional sentence are omitted. The distance guidance, primary action's pending-condition summary, location note below it, initial ready status, operation and recovery messages, result content and both footer notes remain visible under their existing conditions. Removed descriptions have no dangling ARIA references; fieldset legends and option labels continue to name the controls.
 
 The layout is mobile-first from 320px upward. At the compact breakpoint (480px and below), the shell tightens its gutters, the headline scales down, and the destination sheet reduces its inset padding. The destination sheet uses a two-column detail rhythm, but its value column always has a minimum width of zero so long names and addresses wrap safely.
 
