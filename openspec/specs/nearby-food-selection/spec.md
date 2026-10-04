@@ -765,35 +765,7 @@ tests:
   - src/EatThis.Web/src/app.spec.ts
 -->
 
-### Requirement: Preserve the viewport throughout recommendations
-
-The frontend SHALL preserve the current document scroll position throughout recommendation state changes without automatically navigating to the top, result or error, or programmatically moving focus. It SHALL prevent content removal or replacement from shortening the document enough to clamp scroll position. Initial idle SHALL reserve no result space. Retained layout space SHALL NOT expose a stale restaurant as a current result or navigation action.
-
-#### Scenario: First recommendation completes
-
-- **WHEN** the user starts a recommendation at a scrolled position with no subsequent scroll input and an unchanged viewport
-- **THEN** locating, searching and selected DOM updates preserve scrollY within 1 CSS pixel of its pre-update value without a transient jump, and the existing live region announces progress
-
-#### Scenario: Repeated recommendation changes result height
-
-- **WHEN** a displayed restaurant is replaced through another recommendation by a shorter or taller result
-- **THEN** clearing the old result, progress and replacement preserve scroll position even near the page bottom and only the new restaurant is actionable on success
-
-#### Scenario: Recommendation fails
-
-- **WHEN** an initial or repeated recommendation ends in permission-denied, unsupported-geolocation, no-results, provider-error or rate-limited
-- **THEN** each state preserves scroll position, displays existing recovery feedback and exposes no actionable previous restaurant
-
-#### Scenario: User scrolls while waiting
-
-- **WHEN** the user scrolls from scrollY 600 to 800 while a request is pending
-- **THEN** completion preserves the latest position within 1 CSS pixel under an unchanged viewport and does not restore 600 or focus the result
-
-#### Scenario: Initial idle and busy behavior remain intact
-
-- **WHEN** the page initializes and the user then starts a recommendation and activates the action again while busy
-- **THEN** idle reserves no result space and the duplicate activation starts no additional location or API request
-
+---
 ### Requirement: Return and display restaurant review totals
 
 The Google provider SHALL request places.userRatingCount in the existing Nearby Search call. The backend SHALL propagate it through the selected candidate and success response as nullable userRatingCount without additional upstream calls or changes to eligibility, selection probability or repeat prevention. Valid values SHALL be integers from 0 through 2147483647. Missing, null, negative, fractional, string and out-of-range upstream values SHALL normalize to null without failing an otherwise usable result. The frontend SHALL accept omitted and null fields, suppress invalid counts, and render valid counts beside the rating using zh-TW thousands separators and 則評論. Counts SHALL include reviews with or without text; this feature SHALL NOT fetch review text.
@@ -834,3 +806,84 @@ The Google provider SHALL request places.userRatingCount in the existing Nearby 
 
 - **WHEN** an explicit recommendation is processed
 - **THEN** the existing server-owned field mask includes places.userRatingCount, no Details request is added, and radius, category, minimum rating and history continue to determine selection independently of count
+
+---
+### Requirement: Scroll to the completed recommendation outcome
+
+After each accepted explicit recommendation action completes and its outcome DOM is rendered, the frontend SHALL issue exactly one automatic scroll to the selected restaurant article on success or the current status message on failure. The target SHALL be positioned at the start of the viewport subject to the browser's available scroll range, with the restaurant name or failure message visible. The frontend SHALL NOT target the document bottom or retained blank space. It SHALL NOT programmatically move focus. It SHALL preserve the existing live region, pending-search layout stability, compact initial idle and removal of stale restaurants during retries.
+
+The frontend SHALL use smooth scrolling normally and immediate scrolling when reduced motion is requested at completion time. If motion preference detection is unavailable, it SHALL use immediate scrolling. If the target or scrolling method is unavailable, it SHALL preserve readable outcome content without throwing or retrying the search. Completion callbacks for unmounted components or superseded actions SHALL NOT initiate scrolling.
+
+#### Scenario: First successful recommendation
+
+- **WHEN** the user activates the action and a restaurant named 老地方牛肉麵 is rendered after locating and searching
+- **THEN** the frontend issues one scroll to that new article after its name is in the DOM, makes no scroll call during locating or searching, and does not move focus
+
+#### Scenario: Repeated recommendation changes result height
+
+- **GIVEN** an existing restaurant article is displayed
+- **WHEN** a new explicit recommendation replaces it with a shorter or taller restaurant article
+- **THEN** the frontend retains pending-search layout stability, removes the previous actionable restaurant, and scrolls once to the new article when it is rendered instead of scrolling to retained bottom whitespace
+
+#### Scenario: Failed recommendation
+
+- **WHEN** an accepted recommendation completes with one of the following outcomes
+- **THEN** the frontend scrolls once to the rendered status message and preserves the associated recovery content
+
+##### Example: Terminal failure targets
+
+| State | Scroll target content |
+| --- | --- |
+| permission-denied | Location permission failure |
+| unsupported-geolocation | Unsupported location capability |
+| no-results | Submitted conditions and no eligible restaurant |
+| provider-error | Validation or provider failure |
+| rate-limited | Rate-limit feedback |
+
+#### Scenario: Same failure on successive actions
+
+- **WHEN** two distinct accepted actions each finish with unsupported-geolocation without entering searching
+- **THEN** the frontend issues one status-targeted scroll per action, for two total, without requiring a change of terminal state
+
+#### Scenario: User scrolls while waiting or after completion
+
+- **WHEN** the user scrolls from scrollY 600 to 800 while a recommendation is pending and then its result arrives
+- **THEN** completion performs its one outcome-targeted scroll instead of preserving 800, and subsequent user scrolling, condition edits or content resizing do not trigger another scroll
+
+#### Scenario: Idle and duplicate activation
+
+- **WHEN** the page initializes, pending controls change, or the primary action is activated again while locating or searching
+- **THEN** those events initiate no automatic scroll, idle reserves no result space, and busy duplicate activation starts no additional geolocation or API request
+
+#### Scenario: Motion preference at completion
+
+- **WHEN** a recommendation completes under one of the following current preference conditions
+- **THEN** its one scroll follows the table and does not move focus
+
+##### Example: Motion behavior
+
+| Preference at completion | Behavior |
+| --- | --- |
+| prefers-reduced-motion is false | smooth |
+| prefers-reduced-motion is true | immediate without animation |
+| preference detection unavailable | immediate without animation |
+| preference changes from false to true while waiting | immediate without animation |
+
+#### Scenario: No active target at completion
+
+- **WHEN** a component is unmounted, an action is superseded, or its target or scrolling method is unavailable before the completion callback runs
+- **THEN** that callback issues no scroll, throws no error, and starts no additional request
+
+<!-- @trace
+source: scroll-to-search-outcome
+updated: 2026-10-04
+code:
+  - DESIGN.md
+  - docs/ui/eatthis-mobile-web-direction.md
+  - src/EatThis.Web/dist/assets/index-CGbW_SCq.js
+  - src/EatThis.Web/dist/assets/index-Cu4tK6bz.js
+  - src/EatThis.Web/dist/index.html
+  - src/EatThis.Web/src/App.vue
+tests:
+  - src/EatThis.Web/src/app.spec.ts
+-->

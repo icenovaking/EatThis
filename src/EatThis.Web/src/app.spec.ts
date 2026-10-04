@@ -94,7 +94,7 @@ describe('EatThis shell', () => {
     wrapper.unmount()
   })
 
-  it('retains measured feedback space across retries without stale results or scroll commands', async () => {
+  it('retains measured feedback space across retries without stale results or scroll restoration', async () => {
     let observeResize!: ResizeObserverCallback
     const disconnect = vi.fn()
     vi.stubGlobal('ResizeObserver', class {
@@ -549,6 +549,147 @@ describe('EatThis shell', () => {
     await search
     await flushPromises()
     expect(wrapper.get('[data-state="selected"] h2').text()).toBe('Example Food Shop')
+  })
+})
+
+describe('recommendation outcome scrolling', () => {
+  const originalScroll = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView')
+  let calls: { target: HTMLElement; text: string; options: ScrollIntoViewOptions }[]
+  beforeEach(() => {
+    calls = []
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: function (this: HTMLElement, options: ScrollIntoViewOptions) {
+        calls.push({ target: this, text: this.textContent ?? '', options })
+      },
+    })
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
+  })
+  afterEach(() => {
+    if (originalScroll) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', originalScroll)
+    else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
+    document.body.innerHTML = ''
+  })
+
+  it('scrolls once to each rendered restaurant and never during progress or pending edits', async () => {
+    let locate!: PositionCallback
+    let resolvePick!: (place: PlaceResult) => void
+    const geolocation = { getCurrentPosition: vi.fn((success: PositionCallback) => { locate = success }) }
+    const pick = vi.fn(() => new Promise<PlaceResult>(resolve => { resolvePick = resolve }))
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus')
+    const wrapper = mount(App, { attachTo: document.body, props: { geolocation, pick } })
+    await wrapper.get('input[type="range"]').setValue('700')
+    expect(calls).toHaveLength(0)
+    for (const restaurant of [traditionalChinesePlace, longFallbackPlace, selectedPlace]) {
+      const previousCalls = calls.length
+      await wrapper.get('[data-action="recommend"]').trigger('click')
+      await wrapper.get('[data-action="recommend"]').trigger('click')
+      expect(calls).toHaveLength(previousCalls)
+      successfulGeolocation().getCurrentPosition(locate)
+      await flushPromises()
+      await wrapper.get('[data-action="recommend"]').trigger('click')
+      expect(calls).toHaveLength(previousCalls)
+      resolvePick(restaurant)
+      await flushPromises()
+      expect(calls).toHaveLength(previousCalls + 1)
+      expect(calls.at(-1)?.target).toBe(wrapper.get('article').element)
+      expect(calls.at(-1)?.text).toContain(restaurant.name)
+      expect(calls.at(-1)?.options).toEqual({ behavior: 'smooth', block: 'start' })
+      await wrapper.get('input[type="range"]').setValue('1000')
+      window.dispatchEvent(new Event('scroll'))
+      window.dispatchEvent(new Event('resize'))
+      await flushPromises()
+      expect(calls).toHaveLength(previousCalls + 1)
+    }
+    expect(geolocation.getCurrentPosition).toHaveBeenCalledTimes(3)
+    expect(pick).toHaveBeenCalledTimes(3)
+    expect(focus).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it.each(['permission-denied', 'unsupported-geolocation', 'no-results', 'provider-error', 'rate-limited'] as const)(
+    'scrolls to rendered %s feedback for every accepted action', async (outcome) => {
+      const geolocation: GeolocationPort = outcome === 'unsupported-geolocation' ? {} as GeolocationPort
+        : outcome === 'permission-denied' ? { getCurrentPosition: (_success, fail) => fail?.({ code: 1 } as GeolocationPositionError) }
+          : successfulGeolocation()
+      const status = outcome === 'no-results' ? 404 : outcome === 'rate-limited' ? 429 : 503
+      const pick = vi.fn().mockRejectedValue(new ApiRequestError(status, outcome.replace('-', '_'), '請稍後再試。'))
+      const wrapper = mount(App, { attachTo: document.body, props: { geolocation, pick } })
+      for (let count = 1; count <= 2; count++) {
+        await wrapper.get('[data-action="recommend"]').trigger('click')
+        await flushPromises()
+        expect(calls).toHaveLength(count)
+        expect(calls.at(-1)?.target).toBe(wrapper.get('[role="status"]').element)
+        expect(calls.at(-1)?.target.dataset.state).toBe(outcome)
+        expect(calls.at(-1)?.text).toBe(wrapper.get('[role="status"]').element.textContent)
+        expect(calls.at(-1)?.text.length).toBeGreaterThan(0)
+        expect(wrapper.find('article').exists()).toBe(false)
+      }
+      expect(pick).toHaveBeenCalledTimes(outcome === 'permission-denied' || outcome === 'unsupported-geolocation' ? 0 : 2)
+      wrapper.unmount()
+    },
+  )
+
+  it.each([true, false, undefined])('uses the completion motion preference %s', async (preference) => {
+    let resolvePick!: (place: PlaceResult) => void
+    const pick = vi.fn(() => new Promise<PlaceResult>(resolve => { resolvePick = resolve }))
+    const wrapper = mount(App, { attachTo: document.body, props: { geolocation: successfulGeolocation(), pick } })
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    await flushPromises()
+    // Change the preference after the action starts, before it completes.
+    const matchMedia = preference === undefined ? undefined : vi.fn(() => ({ matches: preference }))
+    vi.stubGlobal('matchMedia', matchMedia)
+    resolvePick(selectedPlace)
+    await flushPromises()
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.options).toEqual({ behavior: preference === false ? 'smooth' : 'instant', block: 'start' })
+    if (matchMedia) expect(matchMedia).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)')
+    wrapper.unmount()
+  })
+
+  it.each(['unmount', 'missing-method', 'detached-target'] as const)('safely skips scrolling for %s', async (condition) => {
+    let resolvePick!: (place: PlaceResult) => void
+    const pick = vi.fn(() => new Promise<PlaceResult>(resolve => { resolvePick = resolve }))
+    const wrapper = mount(App, {
+      attachTo: document.body, props: { geolocation: successfulGeolocation(), pick },
+      global: { mixins: [{ updated() {
+        if (condition === 'detached-target') this.$el.querySelector('article')?.remove()
+      } }] },
+    })
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    await flushPromises()
+    if (condition === 'unmount') wrapper.unmount()
+    if (condition === 'missing-method') Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
+    resolvePick(selectedPlace)
+    await flushPromises()
+    expect(calls).toHaveLength(0)
+    expect(pick).toHaveBeenCalledTimes(1)
+    if (condition !== 'unmount') wrapper.unmount()
+  })
+
+  it('does not scroll an older completion after a newer action has started', async () => {
+    let resolvePick!: (place: PlaceResult) => void
+    let startedAgain = false
+    const pick = vi.fn().mockResolvedValueOnce(traditionalChinesePlace)
+      .mockImplementationOnce(() => new Promise<PlaceResult>(resolve => { resolvePick = resolve }))
+    const wrapper = mount(App, {
+      attachTo: document.body, props: { geolocation: successfulGeolocation(), pick },
+      global: { mixins: [{ updated() {
+        if (!startedAgain && this.$el.querySelector('article')) {
+          startedAgain = true
+          this.$el.querySelector('[data-action="recommend"]').click()
+        }
+      } }] },
+    })
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    await flushPromises()
+    expect(pick).toHaveBeenCalledTimes(2)
+    expect(calls).toHaveLength(0)
+    resolvePick(selectedPlace)
+    await flushPromises()
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.text).toContain(selectedPlace.name)
+    wrapper.unmount()
   })
 })
 

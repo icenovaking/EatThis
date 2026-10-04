@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onBeforeUpdate, onMounted, onUpdated, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onBeforeUpdate, onMounted, onUpdated, ref } from 'vue'
 import { RESTAURANT_CATEGORY_OPTIONS, formatRestaurantCategory } from './restaurantCategories'
 import googleMapsLogo from './assets/google-maps-logo.svg'
 import {
@@ -28,6 +28,10 @@ const {
 
 const feedback = ref<HTMLElement | null>(null)
 const feedbackContent = ref<HTMLElement | null>(null)
+const outcomeStatus = ref<HTMLElement | null>(null)
+const outcomePlace = ref<HTMLElement | null>(null)
+let disposed = false
+let recommendationVersion = 0
 let feedbackHeight = 0
 let feedbackObserver: ResizeObserver | undefined
 
@@ -50,7 +54,24 @@ onMounted(() => {
     feedbackObserver.observe(feedbackContent.value)
   }
 })
-onBeforeUnmount(() => feedbackObserver?.disconnect())
+onBeforeUnmount(() => {
+  disposed = true
+  feedbackObserver?.disconnect()
+})
+
+async function recommendAndScroll(): Promise<void> {
+  if (isBusy.value) return
+  const version = ++recommendationVersion
+  await recommend()
+  await nextTick()
+  if (disposed || version !== recommendationVersion) return
+
+  const target = state.value === 'selected' ? outcomePlace.value : outcomeStatus.value
+  if (!target?.isConnected || typeof target.scrollIntoView !== 'function') return
+  const reduceMotion = typeof window.matchMedia !== 'function'
+    || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  target.scrollIntoView({ behavior: reduceMotion ? 'instant' : 'smooth', block: 'start' })
+}
 
 const reviewCountLabel = computed(() => {
   const count = place.value?.userRatingCount
@@ -196,7 +217,7 @@ function formatRadius(radiusMeters: number): string {
           data-action="recommend"
           type="button"
           :disabled="isBusy"
-          @click="recommend"
+        @click="recommendAndScroll"
         >
           <span>{{ isBusy ? '正在搜尋' : state === 'no-results' ? '再找一次' : '幫我決定' }}</span>
           <span class="action-detail">{{ `目前條件 · ${radiusLabel} · ${categoryLabel} · ${ratingLabel}` }}</span>
@@ -206,6 +227,7 @@ function formatRadius(radiusMeters: number): string {
       <div ref="feedback" class="recommendation-feedback" data-feedback>
         <div ref="feedbackContent" class="recommendation-feedback-content" data-feedback-content>
           <div
+            ref="outcomeStatus"
             :class="state === 'idle' ? undefined : ['state-panel', `state-panel--${state}`]"
             :data-state="state"
             role="status"
@@ -232,7 +254,7 @@ function formatRadius(radiusMeters: number): string {
             </p>
           </section>
 
-          <article v-if="place" class="place-sheet" data-state="selected">
+          <article v-if="place" ref="outcomePlace" class="place-sheet" data-state="selected">
             <div class="place-heading">
               <div>
                 <h2>{{ place.name }}</h2>
