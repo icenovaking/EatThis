@@ -22,8 +22,8 @@ EatThis is a calm, precise city utility. It starts with the user's walkable dist
 - Five stars below category select a minimum rating in 0.5-star steps from 0.5 to 5. Left half selects n−0.5 and right half n; the default and explicit reset are 不限評分. Selected portions fill yellow and the numeric threshold remains visible.
 - Rating text and reset share a right-aligned intrinsic-width column with equal text-box and button-border widths. The pair wraps together below the intact star row when space is insufficient. Half-star targets stay at least 24px wide and 48px high. Pointer hover and touch selection show no rectangular half-star outline; keyboard focus stays visible.
 - The primary green action is labelled `幫我決定`; its secondary line names pending radius, category and rating, even while the primary action is disabled during work.
-- The aria-live status follows the action in the same reading order. Loading, permission, provider, and no-result states include plain-language recovery.
-- The location-use note below the action, initial 準備好了 status, GPS 只在你要求時使用 and 外部導覽 footer notes remain. The distance-control instructions and primary action's current-condition summary also remain.
+- An initially empty polite atomic aria-live status region follows the action without visible idle content, mark, borders or reserved space. Non-idle states display operation feedback in that same region. Loading, permission, provider, and no-result states retain plain-language recovery.
+- The location-use note below the action, initial 準備好了 status, GPS 只在你要求時使用 and 外部導覽 footer notes are removed. Idle content ends at the primary action with normal shell padding. The distance-control instructions and primary action's current-condition summary remain.
 - A selected destination sheet follows the status and contains one name, address, distance, actual rating or 尚無評分, external map action, and the Google Maps attribution at its lower boundary.
 
 ## Material and visual system
@@ -57,7 +57,7 @@ Category and rating changes and reset have no location or API side effect. The p
 
 | State | Visible proof | Primary action | Assistive-technology behavior |
 | --- | --- | --- | --- |
-| idle | Location purpose, current radius, one recommendation action | `幫我決定` | Heading, labeled range, and action are immediately discoverable |
+| idle | Current conditions and one recommendation action; no static lower notes or ready panel | `幫我決定` | Heading, labeled controls, action and an empty polite status region |
 | locating | Browser location is being requested | Disabled recommendation action | Polite live region announces location work |
 | searching | Nearby search is in progress | No duplicate submit | Polite live region announces search progress |
 | selected | One place name, address, distance, navigation action, and attribution | `在地圖中開啟` | Result remains a single semantic destination sheet |

@@ -27,7 +27,7 @@ const {
 } = useNearbyFood(props)
 
 const stateCopy: Record<NearbyFoodState, string> = {
-  idle: '準備好了。選好距離、餐廳類型與最低評分後，讓 EatThis 幫你挑一間。',
+  idle: '',
   locating: '正在取得目前位置，請在瀏覽器提示中允許定位。',
   searching: '正在附近搜尋餐飲地點，請稍等。',
   selected: '已為你選出一間，接著可以開啟地圖。',
@@ -168,20 +168,20 @@ function formatRadius(radiusMeters: number): string {
           <span>{{ isBusy ? '正在搜尋' : state === 'no-results' ? '再找一次' : '幫我決定' }}</span>
           <span class="action-detail">{{ `目前條件 · ${radiusLabel} · ${categoryLabel} · ${ratingLabel}` }}</span>
         </button>
-        <p class="action-note">按下後才會使用目前位置；結果會交給 Google Maps 開啟路線。</p>
       </div>
 
       <div
-        class="state-panel"
-        :class="`state-panel--${state}`"
+        :class="state === 'idle' ? undefined : ['state-panel', `state-panel--${state}`]"
         :data-state="state"
         role="status"
         aria-live="polite"
         aria-atomic="true"
       >
-        <span class="state-mark" aria-hidden="true"></span>
-        <p class="state-copy">{{ stateText }}</p>
-        <p v-if="error" class="state-detail">{{ error.message }}</p>
+        <template v-if="state !== 'idle'">
+          <span class="state-mark" aria-hidden="true"></span>
+          <p class="state-copy">{{ stateText }}</p>
+          <p v-if="error" class="state-detail">{{ error.message }}</p>
+        </template>
       </div>
 
       <section v-if="state === 'no-results'" class="recovery-panel" data-state="no-results">
@@ -252,9 +252,5 @@ function formatRadius(radiusMeters: number): string {
       </p>
     </section>
 
-    <footer class="footer-note">
-      <span>GPS 只在你要求時使用</span>
-      <span>外部導覽</span>
-    </footer>
   </main>
 </template>

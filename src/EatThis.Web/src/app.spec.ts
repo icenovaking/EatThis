@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiRequestError } from './api/nearbyFoodApi'
 import App from './App.vue'
 import type { PlaceResult } from './types'
+import type { GeolocationPort } from './geolocation'
 
 beforeEach(() => localStorage.clear())
 
@@ -49,7 +50,7 @@ function successfulGeolocation() {
 }
 
 describe('EatThis shell', () => {
-  it('removes redundant search guidance while preserving action and status copy', () => {
+  it('keeps the idle surface quiet while preserving the current conditions', () => {
     const wrapper = mount(App)
 
     for (const copy of [
@@ -58,6 +59,10 @@ describe('EatThis shell', () => {
       '先決定你願意走多遠，EatThis 只在你按下按鈕後取一次位置，替你選一間。',
       '選一種想吃的類型，或交給我們決定',
       '點星星左半選半星，右半選整星',
+      '按下後才會使用目前位置；結果會交給 Google Maps 開啟路線。',
+      '準備好了',
+      'GPS 只在你要求時使用',
+      '外部導覽',
     ]) {
       expect(wrapper.text()).not.toContain(copy)
     }
@@ -65,9 +70,72 @@ describe('EatThis shell', () => {
     expect(wrapper.get('h1').text()).toBe('今天，吃什麼？')
     expect(wrapper.get('#radius-help').text()).toBe('拖曳或使用方向鍵調整範圍')
     expect(wrapper.get('[data-action="recommend"]').text()).toContain('目前條件 · 100 公尺 · 不限類型 · 不限評分')
-    expect(wrapper.get('.action-note').text()).toBe('按下後才會使用目前位置；結果會交給 Google Maps 開啟路線。')
-    expect(wrapper.get('[role="status"]').text()).toBe('準備好了。選好距離、餐廳類型與最低評分後，讓 EatThis 幫你挑一間。')
-    expect(wrapper.get('footer').findAll('span').map(note => note.text())).toEqual(['GPS 只在你要求時使用', '外部導覽'])
+    expect(wrapper.get('[role="status"]').text()).toBe('')
+    expect(wrapper.get('[role="status"]').attributes('aria-live')).toBe('polite')
+    expect(wrapper.get('[role="status"]').attributes('aria-atomic')).toBe('true')
+    expect(wrapper.find('.state-panel').exists()).toBe(false)
+    expect(wrapper.find('.state-mark').exists()).toBe(false)
+    expect(wrapper.find('footer').exists()).toBe(false)
+  })
+
+  it('keeps pending edits quiet without location or API requests', async () => {
+    const geolocation = successfulGeolocation()
+    const pick = vi.fn()
+    const wrapper = mount(App, { props: { geolocation, pick } })
+    await wrapper.get('input[type="range"]').setValue('700')
+    await wrapper.get('input[name="restaurant-category"][value="japanese"]').setValue(true)
+    await wrapper.get('input[name="minimum-rating"][value="4.5"]').setValue(true)
+    expect(wrapper.get('[data-action="recommend"]').text()).toContain('目前條件 · 700 公尺 · 日式 · 4.5 星以上')
+    expect(wrapper.get('[role="status"]').text()).toBe('')
+    expect(wrapper.find('.state-panel').exists()).toBe(false)
+    expect(geolocation.getCurrentPosition).not.toHaveBeenCalled()
+    expect(pick).not.toHaveBeenCalled()
+  })
+
+  it('updates the same live region from idle through locating searching and selected', async () => {
+    let locate!: PositionCallback
+    let resolvePick!: (place: PlaceResult) => void
+    const geolocation = { getCurrentPosition: vi.fn((success: PositionCallback) => { locate = success }) }
+    const pick = vi.fn(() => new Promise<PlaceResult>(resolve => { resolvePick = resolve }))
+    const wrapper = mount(App, { props: { geolocation, pick } })
+    const live = wrapper.get('[role="status"]').element
+    expect(live.textContent).toBe('')
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    expect(wrapper.get('[role="status"]').element).toBe(live)
+    expect(live.textContent).toContain('正在取得目前位置')
+    expect(wrapper.get('[data-action="recommend"]').attributes('disabled')).toBeDefined()
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    expect(geolocation.getCurrentPosition).toHaveBeenCalledTimes(1)
+    expect(pick).not.toHaveBeenCalled()
+    successfulGeolocation().getCurrentPosition(locate)
+    await flushPromises()
+    expect(live.textContent).toContain('正在附近搜尋')
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    expect(pick).toHaveBeenCalledTimes(1)
+    resolvePick(selectedPlace)
+    await flushPromises()
+    expect(wrapper.get('[role="status"]').element).toBe(live)
+    expect(live.textContent).toContain('已依 100 公尺、不限類型、不限評分')
+    expect(wrapper.get('[data-action="recommend"]').attributes('disabled')).toBeUndefined()
+    expect(wrapper.get('[data-attribution="google-maps"]').attributes('alt')).toBe('Google Maps')
+    expect(wrapper.find('.action-note').exists()).toBe(false)
+    expect(wrapper.find('footer').exists()).toBe(false)
+  })
+
+  it('announces unsupported location with recovery in the existing live region', async () => {
+    const pick = vi.fn()
+    // Model a browser without the getCurrentPosition capability.
+    const wrapper = mount(App, { props: { geolocation: {} as GeolocationPort, pick } })
+    const live = wrapper.get('[role="status"]').element
+    expect(live.textContent).toBe('')
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="status"]').element).toBe(live)
+    expect(live.textContent).toContain('此瀏覽器不支援定位功能')
+    expect(wrapper.text()).toContain('EatThis 不會猜測或套用其他位置')
+    expect(pick).not.toHaveBeenCalled()
+    expect(wrapper.find('.action-note').exists()).toBe(false)
+    expect(wrapper.find('footer').exists()).toBe(false)
   })
 
   it('keeps named filter groups and resolves every descriptive reference', () => {
