@@ -46,6 +46,27 @@ function createGeolocation(
 }
 
 describe('useNearbyFood', () => {
+  it('clears the previous result before a retry and keeps it cleared after failure', async () => {
+    let rejectPick!: (reason: unknown) => void
+    const pick = vi.fn().mockResolvedValueOnce(selectedPlace).mockImplementationOnce(
+      () => new Promise<PlaceResult>((_resolve, reject) => { rejectPick = reject }),
+    )
+    const geolocation = createGeolocation()
+    const flow = useNearbyFood({ geolocation, pick })
+    await flow.recommend()
+    expect(flow.place.value).toEqual(selectedPlace)
+    const retry = flow.recommend()
+    expect(flow.place.value).toBeNull()
+    await vi.waitFor(() => expect(pick).toHaveBeenCalledTimes(2))
+    await flow.recommend()
+    expect(geolocation?.getCurrentPosition).toHaveBeenCalledTimes(2)
+    expect(pick).toHaveBeenCalledTimes(2)
+    rejectPick(new ApiRequestError(503, 'provider_unavailable', '請稍後再試。'))
+    await retry
+    expect(flow.place.value).toBeNull()
+    expect(flow.state.value).toBe('provider-error')
+  })
+
   it('keeps rating changes pending and submits null for unrestricted searches', async () => {
     const geolocation = createGeolocation()
     const pick = vi.fn().mockResolvedValue(selectedPlace)

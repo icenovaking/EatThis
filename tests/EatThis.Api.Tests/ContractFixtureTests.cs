@@ -39,6 +39,8 @@ public sealed class ContractFixtureTests
         Assert.AreEqual(fixture, actual);
         Assert.AreEqual(4.3, actual.Rating);
         var publicJson = await response.Content.ReadAsStringAsync();
+        using var json = JsonDocument.Parse(publicJson);
+        Assert.AreEqual(1234, json.RootElement.GetProperty("userRatingCount").GetInt32());
         Assert.IsFalse(publicJson.Contains("apiKey", StringComparison.OrdinalIgnoreCase));
     }
 

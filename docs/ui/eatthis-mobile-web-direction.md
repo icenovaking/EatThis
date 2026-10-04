@@ -55,6 +55,10 @@ Category and rating changes and reset have no location or API side effect. The p
 
 ## State contract
 
+All recommendation transitions preserve the user's current reading position: no automatic scroll to the top, result or error, and no programmatic focus movement. A persistent feedback area retains its measured height through retries, shorter results and failures. It preserves space rather than stale restaurant content or navigation links; initial idle remains compact. If the user scrolls while a request is pending, completion does not restore an older scroll offset. Bottom whitespace after a shorter result is an intentional trade-off for stability, resets with the mounted page, and is not persisted.
+
+The result rating row adds an available review total such as （1,234 則評論）, representing ratings with or without written text. Counts use zh-TW grouping, wrap naturally, and are informational only. A valid zero displays （0 則評論）; absent, null or invalid counts omit the parentheses. 尚無評分 can coexist with a known count. The backend requests the total in the existing Nearby Search call and adds no Details request or review-content fetch.
+
 | State | Visible proof | Primary action | Assistive-technology behavior |
 | --- | --- | --- | --- |
 | idle | Current conditions and one recommendation action; no static lower notes or ready panel | `幫我決定` | Heading, labeled controls, action and an empty polite status region |
@@ -84,7 +88,7 @@ Category and rating changes and reset have no location or API side effect. The p
 
 ## Release boundary
 
-This surface ships together with the API's 100-to-3000-metre validation and server-controlled Google localization. The public request and normalized response remain provider-neutral. No embedded map, extra place list, new provider, translation service, stored preference, photo, review, or database change is part of this direction.
+This surface ships together with the API's 100-to-3000-metre validation and server-controlled Google localization. The public request and normalized response remain provider-neutral. No embedded map, extra place list, new provider, translation service, stored preference, photo, written review content, or database change is part of this direction. Review totals are an optional nullable response field; the frontend tolerates older responses without that field.
 
 The rating extension adds optional nullable minRating and nullable rating; filtering occurs before deduplication and random selection, and unrated candidates qualify only when unrestricted. The fixed places.rating request uses Nearby Search Enterprise billing, even for unrestricted searches, and considers only the at most 20 candidates returned by Google. No-results copy means this search found no eligible candidate, not that the whole geographic area has none. Deploy the backend before the frontend; rollback the frontend first. Archive refine-nearby-food-search before add-minimum-rating-filter so its distance/localization baseline remains intact.
 

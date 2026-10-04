@@ -6,5 +6,6 @@
   "distanceMeters": 420,
   "navigationUrl": "https://www.google.com/maps/place/example",
   "provider": "google",
-  "rating": 4.3
+  "rating": 4.3,
+  "userRatingCount": 1234
 }

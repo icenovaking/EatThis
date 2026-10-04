@@ -13,6 +13,36 @@ namespace EatThis.Api.Tests;
 public sealed class GooglePlacesProviderTests
 {
     [TestMethod]
+    [DataRow("", null)]
+    [DataRow(",\"userRatingCount\":null", null)]
+    [DataRow(",\"userRatingCount\":-1", null)]
+    [DataRow(",\"userRatingCount\":1.5", null)]
+    [DataRow(",\"userRatingCount\":\"1234\"", null)]
+    [DataRow(",\"userRatingCount\":2147483648", null)]
+    [DataRow(",\"userRatingCount\":true", null)]
+    [DataRow(",\"userRatingCount\":{}", null)]
+    [DataRow(",\"userRatingCount\":0", 0)]
+    [DataRow(",\"userRatingCount\":1234", 1234)]
+    [DataRow(",\"userRatingCount\":2147483647", 2147483647)]
+    public async Task Google_review_count_is_normalized_without_removing_usable_places(string countJson, int? expected)
+    {
+        var handler = new RecordingHandler("{\"places\":[{\"displayName\":{\"text\":\"Food\"},\"formattedAddress\":\"Taipei\",\"location\":{\"latitude\":25.033,\"longitude\":121.5654},\"googleMapsUri\":\"https://example.com/food\",\"rating\":4.9" + countJson + "}]}");
+        using var client = new HttpClient(handler) { BaseAddress = GooglePlacesProvider.DefaultBaseAddress };
+        var provider = new GooglePlacesProvider(client, Options.Create(new GooglePlacesOptions { ApiKey = "fake-test-key" }), NullLogger<GooglePlacesProvider>.Instance);
+        var candidates = await provider.SearchAsync(new NearbySearchQuery(25.033, 121.5654, 700), CancellationToken.None);
+        Assert.AreEqual(1, candidates.Count);
+        Assert.AreEqual("Food", candidates[0].Name);
+        Assert.AreEqual(4.9, candidates[0].Rating);
+        var json = JsonSerializer.SerializeToElement(candidates[0], new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var count = json.GetProperty("userRatingCount");
+        if (expected is int value) Assert.AreEqual(value, count.GetInt32());
+        else Assert.AreEqual(JsonValueKind.Null, count.ValueKind);
+        Assert.AreEqual(1, handler.CallCount);
+        Assert.AreEqual("https://places.googleapis.com/v1/places:searchNearby", handler.Request!.RequestUri!.ToString());
+        Assert.AreEqual("places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating,places.userRatingCount", handler.Request.Headers.GetValues("X-Goog-FieldMask").Single());
+    }
+
+    [TestMethod]
     [DataRow(null, "restaurant,cafe,fast_food_restaurant,food_court,bakery,meal_takeaway")]
     [DataRow("taiwanese-chinese", "taiwanese_restaurant,chinese_restaurant")]
     [DataRow("japanese", "japanese_restaurant,sushi_restaurant,ramen_restaurant")]
@@ -45,7 +75,7 @@ public sealed class GooglePlacesProviderTests
         Assert.AreEqual(1000d, circle.GetProperty("radius").GetDouble());
         Assert.AreEqual(25.033, circle.GetProperty("center").GetProperty("latitude").GetDouble());
         Assert.AreEqual(121.5654, circle.GetProperty("center").GetProperty("longitude").GetDouble());
-        Assert.AreEqual("places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating", handler.Request!.Headers.GetValues("X-Goog-FieldMask").Single());
+        Assert.AreEqual("places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating,places.userRatingCount", handler.Request!.Headers.GetValues("X-Goog-FieldMask").Single());
         foreach (var property in new[] { "minRating", "includedPrimaryTypes", "excludedTypes", "fieldMask" })
             Assert.IsFalse(root.TryGetProperty(property, out _));
     }
@@ -115,7 +145,7 @@ public sealed class GooglePlacesProviderTests
             "fake-test-key",
             handler.Request.Headers.GetValues("X-Goog-Api-Key").Single());
         Assert.AreEqual(
-            "places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating",
+            "places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating,places.userRatingCount",
             handler.Request.Headers.GetValues("X-Goog-FieldMask").Single());
 
         using var requestJson = JsonDocument.Parse(handler.RequestBody!);

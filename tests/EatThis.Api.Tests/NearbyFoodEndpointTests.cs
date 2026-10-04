@@ -10,6 +10,41 @@ namespace EatThis.Api.Tests;
 public sealed class NearbyFoodEndpointTests
 {
     [TestMethod]
+    [DataRow(null)]
+    [DataRow(0)]
+    [DataRow(1234)]
+    [DataRow(2147483647)]
+    public async Task Success_propagates_nullable_review_count_without_changing_selection(int? expected)
+    {
+        var candidate = System.Text.Json.JsonSerializer.Deserialize<PlaceCandidate>(
+            System.Text.Json.JsonSerializer.Serialize(new { name = "Counted Food", address = "Taipei", latitude = 25.033, longitude = 121.5654, distanceMeters = 20, navigationUrl = "https://example.com/food", provider = "google", rating = 4.9, userRatingCount = expected }),
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+        var provider = new ReviewCountProvider(candidate);
+        await using var factory = new ConfigurableApiFactory(provider);
+        using var client = factory.CreateClient();
+        using var response = await client.PostAsJsonAsync("/api/nearby-food/pick", new { latitude = 25.033, longitude = 121.5654, radiusMeters = 700, minRating = 4.5 });
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        using var json = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.AreEqual("Counted Food", json.RootElement.GetProperty("name").GetString());
+        Assert.AreEqual(4.9, json.RootElement.GetProperty("rating").GetDouble());
+        var count = json.RootElement.GetProperty("userRatingCount");
+        if (expected is int value) Assert.AreEqual(value, count.GetInt32());
+        else Assert.AreEqual(System.Text.Json.JsonValueKind.Null, count.ValueKind);
+        Assert.AreEqual(0, json.RootElement.GetProperty("resetNavigationUrls").GetArrayLength());
+        Assert.AreEqual(1, provider.Calls);
+    }
+
+    private sealed class ReviewCountProvider(PlaceCandidate candidate) : EatThis.Api.Application.IPlaceProvider
+    {
+        public int Calls { get; private set; }
+        public Task<IReadOnlyList<PlaceCandidate>> SearchAsync(EatThis.Api.Domain.NearbySearchQuery query, CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult<IReadOnlyList<PlaceCandidate>>([candidate]);
+        }
+    }
+
+    [TestMethod]
     public async Task Exhausted_singleton_returns_reset_keys_with_original_place_fields()
     {
         const string url = "https://www.google.com/maps/place/example";
@@ -135,7 +170,7 @@ public sealed class NearbyFoodEndpointTests
         Assert.AreEqual(expected, factory.LastQuery?.RestaurantCategory);
         using var json = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         CollectionAssert.AreEquivalent(
-            new[] { "name", "address", "latitude", "longitude", "distanceMeters", "navigationUrl", "provider", "rating", "resetNavigationUrls" },
+            new[] { "name", "address", "latitude", "longitude", "distanceMeters", "navigationUrl", "provider", "rating", "resetNavigationUrls", "userRatingCount" },
             json.RootElement.EnumerateObject().Select(property => property.Name).ToArray());
     }
 

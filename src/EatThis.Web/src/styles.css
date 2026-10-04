@@ -238,8 +238,16 @@ input[type="range"]:active::-moz-range-thumb {
   padding-top: 24px;
 }
 
-.action-block:has(+ [data-state]:not([data-state="idle"])) {
+.action-block:has(+ .recommendation-feedback .state-panel) {
   padding-bottom: 28px;
+}
+
+.recommendation-feedback {
+  overflow-anchor: none;
+}
+
+.recommendation-feedback-content {
+  display: flow-root;
 }
 
 .category-control {
@@ -433,9 +441,16 @@ input[type="range"]:active::-moz-range-thumb {
 
 .place-rating {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   font-variant-numeric: tabular-nums;
+}
+
+.review-count {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
 }
 
 .result-rating-star {

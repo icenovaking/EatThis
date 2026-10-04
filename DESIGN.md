@@ -118,7 +118,7 @@ Five authored SVG stars sit after restaurant category and before the primary act
 
 The shared star-size token is clamp(48px, 8vw, 56px), making each half target at least 24px wide and 48px high. The five-star row stays together. The numeric label and unrestricted selection share an intrinsic-width grid column at the right edge; the text box and reset border have equal widths. This pair wraps together below the stars when space is insufficient. Pointer hover and touch selection add no rectangular half-star outline; keyboard focus retains the existing jade outline. The group exposes native keyboard radio behavior and accessible names. No inline per-device geometry is used.
 
-The primary action names pending distance, restaurant category and rating, including while busy. Operation messages and recovery name the submitted snapshot. The destination sheet includes one small yellow SVG star alongside the actual rating number or 尚無評分; this result is informational rather than editable.
+The primary action names pending distance, restaurant category and rating, including while busy. Operation messages and recovery name the submitted snapshot. The destination sheet includes one small yellow SVG star alongside the actual rating number or 尚無評分; this result is informational rather than editable. An available review total follows the rating, for example 4.9（1,234 則評論）, using Traditional Chinese number grouping and the existing muted text color. Zero is displayed as 0 則評論; missing or invalid counts omit the entire parenthetical. A known count remains visible beside 尚無評分 when the rating is unavailable. The rating row wraps naturally without truncating the count.
 
 ### Primary
 
@@ -165,6 +165,12 @@ The header contains only the EatThis wordmark. The city-guide descriptor, 今日
 The layout is mobile-first from 320px upward. At the compact breakpoint (480px and below), the shell tightens its gutters, the headline scales down, and the destination sheet reduces its inset padding. The destination sheet uses a two-column detail rhythm, but its value column always has a minimum width of zero so long names and addresses wrap safely.
 
 **The One Surface Rule.** Keep the recommendation journey in one vertical read: choose a walkable radius, make one request, announce the state, and show one destination.
+
+### Stable recommendation position
+
+Recommendation progress, success and failure do not initiate scrolling or move keyboard focus. A persistent feedback container measures its natural inner content before updates and retains the greatest measured height for the current mounted page. Shorter results, retries and errors can therefore leave bottom whitespace instead of collapsing the document. The previous restaurant and its navigation action are removed during a retry; only their space is retained. Initial idle reserves no result space, and a page reload resets the measurement. Resize observation captures content growth without adding repeated padding; the observer is disconnected on unmount. Browser scroll anchoring is excluded from the changing feedback region. No stored starting scroll offset is restored, so users remain free to scroll while waiting.
+
+The browser acceptance target is at most 1 CSS pixel of scrollY change across each application update with a fixed viewport and no user scrolling. Native permission UI, viewport resizing, touch behavior and screen-reader announcements require real-browser verification; DOM measurement mocks do not prove this target.
 
 ## Elevation & Depth
 

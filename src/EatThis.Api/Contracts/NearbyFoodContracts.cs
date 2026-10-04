@@ -19,7 +19,8 @@ public sealed record PlaceCandidate(
     double DistanceMeters,
     string NavigationUrl,
     string Provider,
-    double? Rating = null);
+    double? Rating = null,
+    int? UserRatingCount = null);
 
 public sealed record NearbyFoodResponse(
     string Name,
@@ -30,7 +31,8 @@ public sealed record NearbyFoodResponse(
     string NavigationUrl,
     string Provider,
     double? Rating,
-    IReadOnlyList<string> ResetNavigationUrls);
+    IReadOnlyList<string> ResetNavigationUrls,
+    int? UserRatingCount = null);
 
 public sealed record ApiErrorResponse(
     [property: JsonPropertyName("errorCode")] string ErrorCode,

@@ -19,6 +19,7 @@ export interface PlaceResult {
   navigationUrl: string
   provider: string
   rating?: number | null
+  userRatingCount?: number | null
   resetNavigationUrls?: string[]
 }
 

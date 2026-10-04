@@ -1,12 +1,13 @@
 import { mount } from '@vue/test-utils'
 import { flushPromises } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiRequestError } from './api/nearbyFoodApi'
 import App from './App.vue'
 import type { PlaceResult } from './types'
 import type { GeolocationPort } from './geolocation'
 
 beforeEach(() => localStorage.clear())
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 const selectedPlace: PlaceResult = {
   name: 'Example Food Shop',
@@ -50,6 +51,134 @@ function successfulGeolocation() {
 }
 
 describe('EatThis shell', () => {
+  it.each([
+    [1234, '（1,234 則評論）'],
+    [0, '（0 則評論）'],
+    [2147483647, '（2,147,483,647 則評論）'],
+  ])('shows review count %s beside the actual rating', async (userRatingCount, label) => {
+    const wrapper = mount(App, { props: {
+      geolocation: successfulGeolocation(),
+      pick: vi.fn().mockResolvedValue({ ...selectedPlace, rating: 4.9, userRatingCount }),
+    } })
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('.place-rating').text()).toContain('4.9')
+    expect(wrapper.get('[data-review-count]').text()).toBe(label)
+    wrapper.unmount()
+  })
+
+  it.each([undefined, null, -1, 1.5, '1234', 2147483648, NaN, Infinity, true])(
+    'omits an unavailable or invalid review count %s without losing the rating', async (userRatingCount) => {
+      const wrapper = mount(App, { props: {
+        geolocation: successfulGeolocation(),
+        pick: vi.fn().mockResolvedValue({ ...selectedPlace, rating: 4.9, userRatingCount }),
+      } })
+      await wrapper.get('[data-action="recommend"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.get('[data-place-rating]').text()).toBe('4.9')
+      expect(wrapper.find('[data-review-count]').exists()).toBe(false)
+      expect(wrapper.get('.place-rating').text()).not.toContain('（')
+      wrapper.unmount()
+    },
+  )
+
+  it('shows a known review count even when the rating is absent', async () => {
+    const wrapper = mount(App, { props: {
+      geolocation: successfulGeolocation(),
+      pick: vi.fn().mockResolvedValue({ ...selectedPlace, rating: null, userRatingCount: 12 }),
+    } })
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-place-rating]').text()).toBe('尚無評分')
+    expect(wrapper.get('[data-review-count]').text()).toBe('（12 則評論）')
+    wrapper.unmount()
+  })
+
+  it('retains measured feedback space across retries without stale results or scroll commands', async () => {
+    let observeResize!: ResizeObserverCallback
+    const disconnect = vi.fn()
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: ResizeObserverCallback) { observeResize = callback }
+      observe = vi.fn()
+      disconnect = disconnect
+    })
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus')
+    let locate!: PositionCallback
+    let resolvePick!: (place: PlaceResult) => void
+    const geolocation = { getCurrentPosition: vi.fn((success: PositionCallback) => { locate = success }) }
+    const pick = vi.fn(() => new Promise<PlaceResult>(resolve => { resolvePick = resolve }))
+    const wrapper = mount(App, { props: { geolocation, pick } })
+    const feedback = wrapper.get('[data-feedback]').element as HTMLElement
+    const content = wrapper.get('[data-feedback-content]').element as HTMLElement
+    expect(feedback.style.minHeight).toBe('')
+    let naturalHeight = 0
+    vi.spyOn(content, 'getBoundingClientRect').mockImplementation(() => ({ height: naturalHeight }) as DOMRect)
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    naturalHeight = 80
+    observeResize([], {} as ResizeObserver)
+    expect(feedback.style.minHeight).toBe('80px')
+    successfulGeolocation().getCurrentPosition(locate)
+    await flushPromises()
+    resolvePick(longFallbackPlace)
+    await flushPromises()
+    naturalHeight = 640
+    // No observer notification: the next pre-update measurement must still preserve the old height.
+    await wrapper.get('[data-action="recommend"]').trigger('click')
+    expect(feedback.style.minHeight).toBe('640px')
+    expect(wrapper.find('article').exists()).toBe(false)
+    expect(wrapper.find('[data-action="navigation"]').exists()).toBe(false)
+    expect(wrapper.get('[data-feedback]').element).toBe(feedback)
+    naturalHeight = 80
+    observeResize([], {} as ResizeObserver)
+    successfulGeolocation().getCurrentPosition(locate)
+    await flushPromises()
+    resolvePick(selectedPlace)
+    await flushPromises()
+    naturalHeight = 400
+    observeResize([], {} as ResizeObserver)
+    observeResize([], {} as ResizeObserver)
+    expect(feedback.style.minHeight).toBe('640px')
+    expect(wrapper.findAll('article')).toHaveLength(1)
+    expect(wrapper.get('article h2').text()).toBe(selectedPlace.name)
+    naturalHeight = 720
+    observeResize([], {} as ResizeObserver)
+    expect(feedback.style.minHeight).toBe('720px')
+    expect(scrollTo).not.toHaveBeenCalled()
+    expect(focus).not.toHaveBeenCalled()
+    wrapper.unmount()
+    expect(disconnect).toHaveBeenCalledOnce()
+  })
+
+  it.each(['permission-denied', 'unsupported-geolocation', 'no-results', 'provider-error', 'rate-limited'] as const)(
+    'keeps reserved feedback space and removes old navigation on %s', async (outcome) => {
+      vi.stubGlobal('ResizeObserver', undefined)
+      const geolocation: GeolocationPort = successfulGeolocation()
+      const pick = vi.fn().mockResolvedValueOnce(selectedPlace)
+      const wrapper = mount(App, { props: { geolocation, pick } })
+      await wrapper.get('[data-action="recommend"]').trigger('click')
+      await flushPromises()
+      const feedback = wrapper.get('[data-feedback]').element as HTMLElement
+      vi.spyOn(wrapper.get('[data-feedback-content]').element, 'getBoundingClientRect')
+        .mockReturnValue({ height: 640 } as DOMRect)
+      if (outcome === 'permission-denied') {
+        geolocation.getCurrentPosition = vi.fn((_success, fail) => fail?.({ code: 1 } as GeolocationPositionError))
+      } else if (outcome === 'unsupported-geolocation') {
+        geolocation.getCurrentPosition = undefined as unknown as GeolocationPort['getCurrentPosition']
+      } else {
+        const status = outcome === 'no-results' ? 404 : outcome === 'rate-limited' ? 429 : 503
+        pick.mockRejectedValueOnce(new ApiRequestError(status, outcome.replace('-', '_'), '請稍後再試。'))
+      }
+      await wrapper.get('[data-action="recommend"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.get('[role="status"]').attributes('data-state')).toBe(outcome)
+      expect(feedback.style.minHeight).toBe('640px')
+      expect(wrapper.find('article').exists()).toBe(false)
+      expect(wrapper.find('[data-action="navigation"]').exists()).toBe(false)
+      wrapper.unmount()
+    },
+  )
+
   it('keeps the idle surface quiet while preserving the current conditions', () => {
     const wrapper = mount(App)
 

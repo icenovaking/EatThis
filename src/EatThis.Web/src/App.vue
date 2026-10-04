@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onBeforeUpdate, onMounted, onUpdated, ref } from 'vue'
 import { RESTAURANT_CATEGORY_OPTIONS, formatRestaurantCategory } from './restaurantCategories'
 import googleMapsLogo from './assets/google-maps-logo.svg'
 import {
@@ -25,6 +25,39 @@ const {
   isBusy,
   recommend,
 } = useNearbyFood(props)
+
+const feedback = ref<HTMLElement | null>(null)
+const feedbackContent = ref<HTMLElement | null>(null)
+let feedbackHeight = 0
+let feedbackObserver: ResizeObserver | undefined
+
+function retainFeedbackHeight(): void {
+  if (!feedback.value || !feedbackContent.value) return
+  // Measure the natural inner content, never the outer minimum height.
+  const height = Math.ceil(feedbackContent.value.getBoundingClientRect().height)
+  if (height > feedbackHeight) {
+    feedbackHeight = height
+    // Apply before Vue removes the previous result; no scroll/focus restoration.
+    feedback.value.style.minHeight = `${height}px`
+  }
+}
+
+onBeforeUpdate(retainFeedbackHeight)
+onUpdated(retainFeedbackHeight)
+onMounted(() => {
+  if (typeof ResizeObserver !== 'undefined' && feedbackContent.value) {
+    feedbackObserver = new ResizeObserver(retainFeedbackHeight)
+    feedbackObserver.observe(feedbackContent.value)
+  }
+})
+onBeforeUnmount(() => feedbackObserver?.disconnect())
+
+const reviewCountLabel = computed(() => {
+  const count = place.value?.userRatingCount
+  return typeof count === 'number' && Number.isInteger(count) && count >= 0 && count <= 2147483647
+    ? `（${count.toLocaleString('zh-TW')} 則評論）`
+    : null
+})
 
 const stateCopy: Record<NearbyFoodState, string> = {
   idle: '',
@@ -170,86 +203,91 @@ function formatRadius(radiusMeters: number): string {
         </button>
       </div>
 
-      <div
-        :class="state === 'idle' ? undefined : ['state-panel', `state-panel--${state}`]"
-        :data-state="state"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        <template v-if="state !== 'idle'">
-          <span class="state-mark" aria-hidden="true"></span>
-          <p class="state-copy">{{ stateText }}</p>
-          <p v-if="error" class="state-detail">{{ error.message }}</p>
-        </template>
-      </div>
-
-      <section v-if="state === 'no-results'" class="recovery-panel" data-state="no-results">
-        <p class="recovery-radius">本次條件：<strong>{{ searchedRadiusLabel }} · {{ searchedCategoryLabel }} · {{ searchedRatingLabel }}</strong></p>
-        <h2>本次還沒找到合適的店。</h2>
-        <p v-if="submittedConditions?.restaurantCategory != null">可以改選其他餐廳類型，或選擇「不限類型」，再搜尋一次。</p>
-        <p v-if="submittedConditions?.minRating != null">可以降低最低評分，或選擇「不限評分」，再搜尋一次。</p>
-        <p v-if="searchedRadius < MAXIMUM_RADIUS_METERS">
-          把搜尋距離調大，再按上方「再找一次」重新搜尋。
-        </p>
-        <p v-else>
-          已經搜尋到 3 公里；按上方「再找一次」重新取得位置。
-        </p>
-      </section>
-
-      <article v-if="place" class="place-sheet" data-state="selected">
-        <div class="place-heading">
-          <div>
-            <h2>{{ place.name }}</h2>
-          </div>
-        </div>
-        <dl class="place-details">
-          <div>
-            <dt>地址</dt>
-            <dd>{{ place.address }}</dd>
-          </div>
-          <div>
-            <dt>距離</dt>
-            <dd>{{ formatDistance(place.distanceMeters) }}</dd>
-          </div>
-          <div>
-            <dt>評分</dt>
-            <dd class="place-rating">
-              <svg v-if="place.rating != null" class="result-rating-star" viewBox="0 0 24 24" aria-hidden="true"><path :d="starPath" /></svg>
-              <span data-place-rating>{{ place.rating ?? '尚無評分' }}</span>
-            </dd>
-          </div>
-        </dl>
-        <a
-          class="navigation-action"
-          data-action="navigation"
-          :href="place.navigationUrl"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <span>在地圖中開啟</span>
-          <span class="link-detail">交給 Google Maps web / app</span>
-        </a>
-        <div v-if="isGooglePlace" class="google-attribution" aria-label="Google Maps attribution">
-          <img
-            data-attribution="google-maps"
-            :src="googleMapsLogo"
-            alt="Google Maps"
-            width="98"
-            height="18"
+      <div ref="feedback" class="recommendation-feedback" data-feedback>
+        <div ref="feedbackContent" class="recommendation-feedback-content" data-feedback-content>
+          <div
+            :class="state === 'idle' ? undefined : ['state-panel', `state-panel--${state}`]"
+            :data-state="state"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
           >
-        </div>
-      </article>
+            <template v-if="state !== 'idle'">
+              <span class="state-mark" aria-hidden="true"></span>
+              <p class="state-copy">{{ stateText }}</p>
+              <p v-if="error" class="state-detail">{{ error.message }}</p>
+            </template>
+          </div>
 
-      <p v-if="state === 'permission-denied'" class="recovery-note">
-        請在瀏覽器的網站權限中重新允許定位，再按一次「幫我決定」。
-      </p>
-      <p v-if="state === 'unsupported-geolocation'" class="recovery-note">
-        請改用支援定位功能的手機瀏覽器；EatThis 不會猜測或套用其他位置。
-      </p>
-      <p v-if="state === 'provider-error' || state === 'rate-limited'" class="recovery-note">
-        {{ error?.retryAfterSeconds ? `約 ${error.retryAfterSeconds} 秒後可以再試。` : '確認網路後可以再按一次。' }}
-      </p>
+          <section v-if="state === 'no-results'" class="recovery-panel" data-state="no-results">
+            <p class="recovery-radius">本次條件：<strong>{{ searchedRadiusLabel }} · {{ searchedCategoryLabel }} · {{ searchedRatingLabel }}</strong></p>
+            <h2>本次還沒找到合適的店。</h2>
+            <p v-if="submittedConditions?.restaurantCategory != null">可以改選其他餐廳類型，或選擇「不限類型」，再搜尋一次。</p>
+            <p v-if="submittedConditions?.minRating != null">可以降低最低評分，或選擇「不限評分」，再搜尋一次。</p>
+            <p v-if="searchedRadius < MAXIMUM_RADIUS_METERS">
+              把搜尋距離調大，再按上方「再找一次」重新搜尋。
+            </p>
+            <p v-else>
+              已經搜尋到 3 公里；按上方「再找一次」重新取得位置。
+            </p>
+          </section>
+
+          <article v-if="place" class="place-sheet" data-state="selected">
+            <div class="place-heading">
+              <div>
+                <h2>{{ place.name }}</h2>
+              </div>
+            </div>
+            <dl class="place-details">
+              <div>
+                <dt>地址</dt>
+                <dd>{{ place.address }}</dd>
+              </div>
+              <div>
+                <dt>距離</dt>
+                <dd>{{ formatDistance(place.distanceMeters) }}</dd>
+              </div>
+              <div>
+                <dt>評分</dt>
+                <dd class="place-rating">
+                  <svg v-if="place.rating != null" class="result-rating-star" viewBox="0 0 24 24" aria-hidden="true"><path :d="starPath" /></svg>
+                  <span data-place-rating>{{ place.rating ?? '尚無評分' }}</span>
+                  <span v-if="reviewCountLabel !== null" class="review-count" data-review-count>{{ reviewCountLabel }}</span>
+                </dd>
+              </div>
+            </dl>
+            <a
+              class="navigation-action"
+              data-action="navigation"
+              :href="place.navigationUrl"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <span>在地圖中開啟</span>
+              <span class="link-detail">交給 Google Maps web / app</span>
+            </a>
+            <div v-if="isGooglePlace" class="google-attribution" aria-label="Google Maps attribution">
+              <img
+                data-attribution="google-maps"
+                :src="googleMapsLogo"
+                alt="Google Maps"
+                width="98"
+                height="18"
+              >
+            </div>
+          </article>
+
+          <p v-if="state === 'permission-denied'" class="recovery-note">
+            請在瀏覽器的網站權限中重新允許定位，再按一次「幫我決定」。
+          </p>
+          <p v-if="state === 'unsupported-geolocation'" class="recovery-note">
+            請改用支援定位功能的手機瀏覽器；EatThis 不會猜測或套用其他位置。
+          </p>
+          <p v-if="state === 'provider-error' || state === 'rate-limited'" class="recovery-note">
+            {{ error?.retryAfterSeconds ? `約 ${error.retryAfterSeconds} 秒後可以再試。` : '確認網路後可以再按一次。' }}
+          </p>
+        </div>
+      </div>
     </section>
 
   </main>

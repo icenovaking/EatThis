@@ -84,7 +84,7 @@ app.MapPost(
                 PickResult.Success success => Results.Ok(new NearbyFoodResponse(
                     success.Place.Name, success.Place.Address, success.Place.Latitude, success.Place.Longitude,
                     success.Place.DistanceMeters, success.Place.NavigationUrl, success.Place.Provider,
-                    success.Place.Rating, success.ResetNavigationUrls)),
+                    success.Place.Rating, success.ResetNavigationUrls, success.Place.UserRatingCount)),
                 PickResult.InvalidRequest => Results.BadRequest(ApiErrorResponse.InvalidRequest),
                 PickResult.NoResults => Results.NotFound(ApiErrorResponse.NoResults),
                 PickResult.ProviderFailure failure => Results.Json(

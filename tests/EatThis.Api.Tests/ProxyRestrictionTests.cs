@@ -40,7 +40,7 @@ public sealed class ProxyRestrictionTests
             root.GetProperty("includedTypes").EnumerateArray().Select(item => item.GetString()).ToArray());
         Assert.AreEqual("zh-TW", root.GetProperty("languageCode").GetString());
         Assert.AreEqual(20, root.GetProperty("maxResultCount").GetInt32());
-        Assert.AreEqual("places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating", handler.FieldMask);
+        Assert.AreEqual("places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating,places.userRatingCount", handler.FieldMask);
         CollectionAssert.AreEquivalent(new[] { "includedTypes", "maxResultCount", "languageCode", "locationRestriction" },
             root.EnumerateObject().Select(property => property.Name).ToArray());
     }

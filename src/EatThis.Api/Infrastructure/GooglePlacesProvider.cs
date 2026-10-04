@@ -18,7 +18,7 @@ public sealed class GooglePlacesProvider(
     public const int DefaultTimeoutSeconds = 10;
 
     private const string FieldMask =
-        "places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating";
+        "places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.rating,places.userRatingCount";
     private const string LanguageCode = "zh-TW";
 
     private static readonly string[] IncludedTypes =
@@ -166,7 +166,9 @@ public sealed class GooglePlacesProvider(
             Math.Round(distanceMeters, 1),
             place.GoogleMapsUri,
             "google",
-            place.Rating is double rating && double.IsFinite(rating) && rating is >= 1 and <= 5 ? rating : null);
+            place.Rating is double rating && double.IsFinite(rating) && rating is >= 1 and <= 5 ? rating : null,
+            place.UserRatingCount.ValueKind == JsonValueKind.Number &&
+            place.UserRatingCount.TryGetInt32(out var count) && count >= 0 ? count : null);
     }
 }
 
@@ -217,7 +219,8 @@ internal sealed record GooglePlace(
     [property: JsonPropertyName("formattedAddress")] string? FormattedAddress,
     [property: JsonPropertyName("location")] GoogleLatLng? Location,
     [property: JsonPropertyName("googleMapsUri")] string? GoogleMapsUri,
-    [property: JsonPropertyName("rating")] double? Rating);
+    [property: JsonPropertyName("rating")] double? Rating,
+    [property: JsonPropertyName("userRatingCount")] JsonElement UserRatingCount);
 
 internal sealed record GoogleDisplayName(
     [property: JsonPropertyName("text")] string? Text);
